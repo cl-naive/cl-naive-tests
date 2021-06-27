@@ -44,7 +44,7 @@ It should be used in the lambda that is registered with register-test.
 
 identifier is must be a keyword or a list of keywords. By making it a list of keywords the user is telling the system that the test is part of a hierarchy of tests. Stats are calculated for the hierachy. A example of a hierarchy would be like junit wants nl suites, suite and testcase.
 
-/test-func is the function that is run to determine the result of the test. If none is supplied and data is supplied then it defaults to (equalp (getf data :expected) (getf data :actual)).
+test-func is the function that is run to determine the result of the test. If none is supplied and data is supplied then it defaults to (equalp (getf data :expected) (getf data :actual)).
 
 data is a convenient place to store data the test relies on, this can be used during the test and later in reporting on test results. Unless you want to use the default behaviour of test-func you can put what ever you want to in it. If you do want to use the default behaviour of test-func data should be a plist with keys of :expected and :actual.
 

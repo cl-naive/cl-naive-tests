@@ -1,0 +1,141 @@
+# -*- mode:org;coding:utf-8 -*-
+
+#+AUTHOR: Phil Marneweck
+#+EMAIL: phil@mts.co.za
+#+DATE: June 27th, 2021
+#+TITLE: User Manual for the cl-naive-tests library
+
+#+BEGIN_EXPORT latex
+\clearpage
+#+END_EXPORT
+
+* Prologue                                                         :noexport:
+
+#+LATEX_HEADER: \usepackage[english]{babel}
+#+LATEX_HEADER: \usepackage[autolanguage]{numprint} % Must be loaded *after* babel.
+#+LATEX_HEADER: \usepackage{rotating}
+#+LATEX_HEADER: \usepackage{float}
+#+LATEX_HEADER: \usepackage{fancyhdr}
+#+LATEX_HEADER: \usepackage[margin=0.75in]{geometry}
+
+# LATEX_HEADER: \usepackage{indentfirst}
+# LATEX_HEADER: \setlength{\parindent}{0pt}
+#+LATEX_HEADER: \usepackage{parskip}
+
+#+LATEX_HEADER: \usepackage{tikz}
+#+LATEX_HEADER: \usetikzlibrary{positioning, fit, calc, shapes, arrows}
+#+LATEX_HEADER: \usepackage[underline=false]{pgf-umlsd}
+#+LATEX_HEADER: \usepackage{lastpage}
+#+LATEX_HEADER: \pagestyle{fancyplain}
+#+LATEX_HEADER: \pagenumbering{arabic}
+#+LATEX_HEADER: \lhead{\small{cl-naive-tests}}
+#+LATEX_HEADER: \chead{}
+#+LATEX_HEADER: \rhead{\small{User Manual}}
+#+LATEX_HEADER: \lfoot{}
+#+LATEX_HEADER: \cfoot{\tiny{\copyright{2021 Phil Marneweck}}}
+#+LATEX_HEADER: \rfoot{\small{Page \thepage \hspace{1pt} de \pageref{LastPage}}}
+
+* cl-naive-tests
+
+A test framework that is not explicitly based on any of the mainstream
+popular testing frameworks for other languages. It has a very simple
+api, so the learning curve should be considerably less than for most
+other frameworks.
+
+It is also designed to work well with gitlab CI out of the box and
+still be simple! Have a look at .gitlab-ci.yml in the project root
+folder and for more on gitlab CI for list go to [[https://gitlab.com/Harag/sbcl-docker-gitlab-ci][sbcl-docker-gitlab-ci]]
+to see how its possible.
+
+* API
+
+** [function] find-result (test-identifier results &key test)
+
+Finds a result in the results.
+
+** [function] calc-stats (result &optional (stats (make-hash-table :test #'equalp)))
+
+Calculates stats. Stats are simple counts of tests, passed and failed
+per level.  Stats are stored in a hashtable per identifier level,
+which makes it easy to get to in format-results if needed.
+
+** [function] test (identifier &key test-func data info (failure-type :failure))
+
+Test runs the test func returning a plist with information about the result and test.
+It should be used in the lambda that is registered with register-test.
+
+*identifier* is must be a keyword or a list of keywords. By making it a
+list of keywords the user is telling the system that the test is part
+of a hierarchy of tests. Stats are calculated for the hierachy. A
+example of a hierarchy would be like junit wants nl suites, suite and
+testcase.
+
+*test-func* is the function that is run to determine the result of the
+test. If none is supplied and data is supplied then it defaults to
+(equalp (getf data :expected) (getf data :actual)).
+
+*data* is a convenient place to store data the test relies on, this can
+be used during the test and later in reporting on test results. Unless
+you want to use the default behaviour of test-func you can put what
+ever you want to in it. If you do want to use the default behaviour of
+test-func data should be a plist with keys of :expected and :actual.
+
+*info* is there for the human that is digging into the tests results,
+you can put what ever you think will be useful to such a person in
+there.
+
+*failure-type* gives the user the opportunity to have tests that can
+fail but wont fail the overall test suite. Think of it as warnings and
+stuff like that. naive-tests uses :failure as the default type and its
+the only type that will cause a test suite to fail when you run
+report.
+
+** [parameter] *tests*
+
+Tests are stored in here when registered.
+
+** [function] register-test (identifier test-lambda)
+
+Saves a test so it can be run later in a batch.
+
+** [function] run (&key (tests *tests*) keep-stats-p)
+
+Runs all tests passed in or all tests registered.
+
+Statistics can be calculated during a test run, but the default is to
+use statistics after a test run to calculate stats.
+
+** [function] report (results)
+
+Reports on the pass or failure of the results set over all. This does
+not do any pretty printing etc because it needs to be machine
+readable. If you want pretty reporting look at format-results or do
+your own.
+
+** [function] statistics (results)
+
+Can be used to calculate statistics post tests if *keep-stats-p* was
+nil.
+
+** [generic fucntion] format-results (format results)
+
+/format-results (format results)/
+
+Formats the results according to format.
+The default method just outputs the results using lisp format string.
+
+/format-results ((format (eql :junit)) results)/
+
+"Formats then results as Junit XML, junits only allows 3 levels nl. suites, suite and testcase.
+If your identifiers are not 1 or 3 levels this wont work for you.
+
+** [function] write-results (results &key (file "results.log") format)
+
+Writes results to file. If format is supplied formats results first using format-results.
+This is used to produce files that could be used by some thing like gitlab CI.
+
+* Epilogue                                                         :noexport:
+
+# Local Variables:
+# eval: (auto-fill-mode 1)
+# End:

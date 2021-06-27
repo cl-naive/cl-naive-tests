@@ -1,4 +1,4 @@
-# cl-naive-tests
+* cl-naive-tests
 
 A test framework that is not explicitly based on any of the mainstream
 popular testing frameworks for other languages. It has a very simple
@@ -6,7 +6,9 @@ api, so the learning curve should be considerably less than for most
 other frameworks.
 
 It is also designed to work well with gitlab CI out of the box and
-still be simple!
+still be simple! Have a look at .gitlab-ci.yml in the project root
+folder and for more on gitlab CI for list go to [[https://gitlab.com/Harag/sbcl-docker-gitlab-ci][sbcl-docker-gitlab-ci]]
+to see how its possible.
 
 To put its simplicity in perspective here is what you need to know at
 different levels of expertise:
@@ -23,3 +25,36 @@ Super User:
 You will have to add statistics, format-results and write-results to
 your arsenal as well.
 
+** License
+
+MIT the doc is [[file:LICENSE][here]].
+
+** Features
+
+Simple and machine readable first.
+
+** Documentation
+
+[[docs/docs.org][Documentation]] can be found in the docs folder in the repository.
+
+** Examples
+
+You can find comprehensive examples [[file:examples/examples.lisp][here]].
+
+** Dependencies
+
+cl-who to generate junit xml.
+
+** Supported CL Implementations
+
+Should support all compliant implementations, no implementation specific code was used.
+
+** Tests
+
+To load and run the tests
+
+#+BEGIN_SRC lisp
+  (ql:quickload :cl-naive-tests.tests)
+
+  (cl-naive-tests.tests::report (cl-naive-tests.tests:run))
+#+END_SRC
