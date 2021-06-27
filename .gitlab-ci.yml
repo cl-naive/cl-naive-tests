@@ -1,0 +1,14 @@
+image: registry.gitlab.com/harag/sbcl-docker-gitlab-ci
+
+stages:
+  - test
+
+before_script:
+  - git clone https://gitlab-ci-token:$CI_JOB_TOKEN@gitlab.com/Harag/cl-naive-tests.git ~/src
+
+test:
+  stage: test
+  script:
+    - /usr/local/bin/sbcl --noinform --non-interactive -eval '(ql:quickload :cl-naive-tests.tests) (if (cl-plist-utils:report (cl-naive-tests:run) (sb-ext:exit :code 0) (sb-ext:exit :code 200))'
+
+
