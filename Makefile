@@ -5,7 +5,7 @@ test tests:
 		--eval '(load #P"~/quicklisp/setup.lisp")' \
 		--eval '(push #P"./" asdf:*central-registry*)' \
 		--eval '(ql:quickload :cl-naive-tests.tests)' \
-		--eval '(sb-ext:exit :code (if (cl-plist-utils.tests:report (cl-plist-utils.tests:run)) 0 200))'
+		--eval '(sb-ext:exit :code (if (cl-naive-tests:report (cl-naive-tests:run)) 0 200))'
 documentation:
 	make -C docs pdfs
 
