@@ -9,6 +9,6 @@ before_script:
 test:
   stage: test
   script:
-    - /usr/local/bin/sbcl --noinform --non-interactive -eval '(ql:quickload :cl-naive-tests.tests) (if (cl-plist-utils:report (cl-naive-tests:run) (sb-ext:exit :code 0) (sb-ext:exit :code 200))'
+    - /usr/local/bin/sbcl --noinform --non-interactive --eval '(ql:quickload :cl-naive-tests.tests) (if (cl-plist-utils:report (cl-naive-tests:run) (sb-ext:exit :code 0) (sb-ext:exit :code 200))'
 
 
