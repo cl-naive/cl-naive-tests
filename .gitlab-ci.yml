@@ -10,6 +10,6 @@ before_script:
 test:
   stage: test
   script:
-     - make -C cl-naive-tests test
+     - make -C cl-naive-tests test DEPENDENCYDIR=~/src
 
 
