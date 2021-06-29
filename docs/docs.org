@@ -1,7 +1,7 @@
 # -*- mode:org;coding:utf-8 -*-
 
 #+AUTHOR: Phil Marneweck
-#+EMAIL: phil@mts.co.za
+#+EMAIL: phil@psychedelic.co.za
 #+DATE: June 27th, 2021
 #+TITLE: User Manual for the cl-naive-tests library
 
@@ -41,6 +41,11 @@ A test framework that is not explicitly based on any of the mainstream
 popular testing frameworks for other languages. It has a very simple
 api, so the learning curve should be considerably less than for most
 other frameworks.
+
+The reason for its simplicity is that it focuses on managing and
+reporting on tests. It does not try to introduce a testing
+syntax/language. Even in managing and reporting it tries to not be
+prescriptive and only implements the bare functional minimum.
 
 It is also designed to work well with gitlab CI out of the box and
 still be simple! Have a look at .gitlab-ci.yml in the project root

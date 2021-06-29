@@ -5,6 +5,11 @@ popular testing frameworks for other languages. It has a very simple
 api, so the learning curve should be considerably less than for most
 other frameworks.
 
+The reason for its simplicity is that it focuses on managing and
+reporting on tests. It does not try to introduce a testing
+syntax/language. Even in managing and reporting it tries to not be
+prescriptive and only implements the bare functional minimum.
+
 It is also designed to work well with gitlab CI out of the box and
 still be simple! Have a look at .gitlab-ci.yml in the project root
 folder and for more on gitlab CI for list go to [[https://gitlab.com/Harag/sbcl-docker-gitlab-ci][sbcl-docker-gitlab-ci]]
@@ -24,6 +29,11 @@ Super User:
 
 You will have to add statistics, format-results and write-results to
 your arsenal as well.
+
+** Status
+
+Its being used in a couple of -naive- projects, as the testing
+framework and is deemed stable enough.
 
 ** License
 
@@ -58,3 +68,7 @@ To load and run the tests
 
   (cl-naive-tests.tests::report (cl-naive-tests.tests:run))
 #+END_SRC
+
+** Why -NAIVE-
+
+If you [[https://gitlab.com/Harag/_naive_/-/blob/main/readme.org][really]] want to know.
