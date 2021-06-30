@@ -4,7 +4,6 @@
   :author "Phil Marneweck <phil@psychedelic.co.za>"
   :licence "MIT"
   :depends-on (:cl-who)
-  :components (
-	       (:file "src/package")
-	       (:file "src/naive-tests" :depends-on ("src/package"))))
+  :components ((:file "src/package")
+	           (:file "src/naive-tests" :depends-on ("src/package"))))
 

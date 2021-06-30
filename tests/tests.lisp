@@ -54,7 +54,7 @@
 
 (register-test :test-result-format
 	       (lambda (key)
-		 (test key
+`		 (test key
 		       :data (list :expected "((:IDENTIFIER :EISH :FAILURE-TYPE :FAILURE :RESULT T :DATA
   (:EXPECTED T :ACTUAL T) :INFO \"(equalp t t)\"))"
 				   :actual (format-results nil
