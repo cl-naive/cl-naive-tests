@@ -3,12 +3,17 @@
 (defpackage :cl-naive-tests
   (:use :cl)
   (:export
+   :*debug*
+   :*verbose*
+   :*suites-results*
    :testsuite
    :testcase
    :run
    :report
    :statistics
-   :find-result
+   :find-testcase
    :calc-stats
    :format-results
-   :write-results))
+   :write-results
+   :save-results
+   ))
