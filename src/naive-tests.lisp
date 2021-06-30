@@ -77,11 +77,7 @@ returning a plist with information about the result and test.
 A plist containing the test info and results is returned.  It should
 be used in the lambda that is registered with register-test.
 
-IDENTIFIER is must be a symbol or a list of symbols.  By making it a
-list of symbols the user is telling the system that the test is part
-of a hierarchy of tests.  Statistics are calculated for the hierachy.
-A example of a hierarchy would be like junit wants: suites, suite and
-testcase.
+IDENTIFIER must be a symbol.
 
 TEST-FUNC is the function that is run to determine the result of the
 test.  If none is supplied, then the EQUAL function is used to compare
@@ -242,38 +238,29 @@ The default method just outputs the results using lisp format string."))
 		                           (getf testcase :identifier))))))
       (when testcase (return-from find-testcase testcase)))))
 
-(defun calc-stats (result &optional (stats (make-hash-table :test #'equalp)))
+(defun calc-stats (suites &optional (stats (make-hash-table :test #'equalp)))
   "Calculates stats. Stats are simple counts of tests, passed and failed per level.
 Stats are stored in a hashtable per identifier level, which makes it easy to get to in format-results if needed."
-  (let ((identifier (getf result :identifier))
-	    (parent nil))
-    (dolist (id (if (listp identifier)
-		            identifier
-		            (list identifier)))
-      (let* ((stat-id (if parent
-			              (append parent id)
-			              id))
-	         (stat (gethash stat-id stats)))
-        (incf (getf stat :count 0))
-	    (if (getf result :result)
-            (incf (getf stat :passed 0))
-            (incf (getf stat (get result :failure-type 0))))
-	    (setf (gethash stat-id stats) stat)
-	    (setf parent (list id))))))
+  (let ((suites-path (list (getf suites :name))))
+    (dolist (suite (getf suites :suites))
+      (let ((suite-path (append suites-path (list (getf suite :identifier)))))
+        (dolist (testcase (getf suite :testcases))
+          (let ((testcase-path (append suite-path (list (getf testcase :identifier)))))
+            (dolist (path (list suites-path suite-path testcase-path))
+              (let ((stat (gethash path stats)))
+                (incf (getf stat :count 0))
+                (incf (getf stat (getf testcase :failure-type) 0))
+                (setf (gethash path stats) stat)))))))))
 
-(defun run (&key (suites *test-suites*) keep-stats-p ((:debug *debug*) nil) (name "suites"))
+(defun run (&key (suites *test-suites*) keep-stats-p ((:debug *debug*) nil) (name ':suites))
   "Runs all the testcases in all the SUITES passed in or all testsuites registered.
 Statistics can be calculated during a test run, but the default is to use statistics after a test run to calculate stats."
   (let ((suite-results '())
 	    (stats         (and keep-stats-p (make-hash-table :test 'equalp))))
-    (maphash (lambda (key value)
-	           (let ((results (funcall value key)))
-		         (when keep-stats-p
-                   (dolist (result results)
-		             (calc-stats result stats)))
-                 (push results suite-results)))
-	         suites)
-    (let ((suites (list :name     "suites"
+    ;; Run the testsuites:
+    (maphash (lambda (key value) (push (funcall value key) suite-results)) suites)
+    ;; Build the suites-results:
+    (let ((suites (list :name     name
                         :disabled (reduce (function +) suite-results :key (lambda (suite) (getf suite :disabled 0)))
                         :skipped  (reduce (function +) suite-results :key (lambda (suite) (getf suite :skipped  0)))
                         :errors   (reduce (function +) suite-results :key (lambda (suite) (getf suite :errors   0)))
@@ -281,6 +268,9 @@ Statistics can be calculated during a test run, but the default is to use statis
                         :tests    (reduce (function +) suite-results :key (lambda (suite) (getf suite :tests    0)))
                         :time     (reduce (function +) suite-results :key (lambda (suite) (getf suite :time     0)))
                         :suites   (nreverse suite-results))))
+      (when keep-stats-p
+        ;; Compute the statitics:
+        (calc-stats suites stats))
       (setf *suites-results* suites)
       (values suites stats))))
 
@@ -298,14 +288,12 @@ Statistics can be calculated during a test run, but the default is to use statis
     (format t "~&Passed:~12T~4D~%Failed:~12T~4D~%" (length passed) (length failed))
     (loop :for (key others) :on other :by (function cddr)
           :do (format t "~A:~12T~4D~%" key (length others)))
-    (write-results suites-results :format :text)
     (values (not failed) passed failed other)))
 
-(defun statistics (results)
+(defun statistics (suites-results)
   "Can be used to calculate statistics post tests if *keep-stats-p* was nil."
   (let ((stats (make-hash-table :test #'equalp)))
-    (dolist (result results)
-      (calc-stats result stats))
+    (calc-stats suites-results stats)
     stats))
 
 ;;; ========================================
