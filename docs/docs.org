@@ -131,6 +131,12 @@ failed or error tests are reported.
 Test results of the last testsuites ran are stored here.
 This variable is reset for each =RUN=.
 
+** [variable] =*junit-no-properties*=
+
+Set this variable to true to disable the *junit* formatter to issue
+the properties (which are local to the host).  Used to produce
+reproducible test cases.
+
 ** [macro] testsuite =(identifier &body body)=
 
 Defines a =TESTSUITE=.

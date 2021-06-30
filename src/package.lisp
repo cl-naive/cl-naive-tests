@@ -5,7 +5,12 @@
   (:export
    :*debug*
    :*verbose*
+   :*junit-no-properties*
+   :*test-suites*
    :*suites-results*
+   :disable-testcase
+   :skip-testcase
+   :skip-testcase-reason
    :testsuite
    :testcase
    :run

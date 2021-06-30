@@ -15,10 +15,19 @@
 (defvar *verbose* nil
   "When true, the success testcases are also printed.")
 
+(defvar *junit-no-properties* nil)
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun unfuck-sbcl-base-string (fucked-sbcl-base-string)
+    (make-array (length fucked-sbcl-base-string)
+                :initial-contents fucked-sbcl-base-string
+                :element-type 'character)))
+
 (defun iso8601-time-stamp (&optional (time (get-universal-time)))
   (multiple-value-bind (se mi ho da mo ye) (decode-universal-time time 0)
-    (format nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0DZ"
-            ye mo da ho mi se)))
+    (unfuck-sbcl-base-string
+     (format nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0DZ"
+             ye mo da ho mi se))))
 
 (defmacro testsuite (identifier &body body)
   "Defines a TESTSUITE.
@@ -60,12 +69,28 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
                    :failures  failure-count
                    :disabled  disabled-count
                    :skipped   skipped-count
-                   :package   (or package (package-name *package))
+                   :package   (or package (unfuck-sbcl-base-string (package-name *package*)))
                    :time      (- (get-universal-time) start-time)
                    :timestamp timestamp
                    :testcases (nreverse *results*))))))
 
-(defmacro testcase (identifier &key test-func test-data (equal ''equal) expected actual info)
+
+(define-condition disable-testcase (condition)
+  ()
+  (:report "Disable the current testcase"))
+(declaim (inline disable-testcase))
+(defun disable-testcase () (signal 'disable-testcase))
+
+(define-condition skip-testcase (condition)
+  ((reason :initarg :reason :reader skip-testcase-reason))
+  (:report (lambda (condition stream)
+             (format stream "Skip the current testcase for ~A"
+                     (skip-testcase-reason condition)))))
+(declaim (inline skip-testcase))
+(defun skip-testcase (&optional (message "Test case is skipped."))
+  (signal 'skip-testcase :reason message))
+
+(defmacro testcase (identifier &key disabled test-func test-data (equal ''equal) expected actual info)
   ;; Better to use a function name than a function for equal, because it's used in reports.
   "The TEST macro evaluates the ACTUAL expression and compare its result with the EXPECTED expression.
 
@@ -77,7 +102,15 @@ returning a plist with information about the result and test.
 A plist containing the test info and results is returned.  It should
 be used in the lambda that is registered with register-test.
 
-IDENTIFIER must be a symbol.
+IDENTIFIER must be a symbol naming the testcase.
+
+DISABLED is a generalized-boolean expression, evaluated. If the result
+is true, then the test is marked disabled, and not run.
+
+The ACTUAL code, or the TEST-FUNC code can also disable the testcase
+by signaling a DISABLE-TESTCASE condition, or skip the testcase with a
+message by signaling a SKIP-TESTCASE condition. (Functions are
+provided to easily signal those conditions).
 
 TEST-FUNC is the function that is run to determine the result of the
 test.  If none is supplied, then the EQUAL function is used to compare
@@ -127,6 +160,7 @@ EXAMPLE:
           :info \"Integer division by zero, giving a DIVISION-BY-ZERO error.\")
 "
   (let ((videntifier  (gensym))
+        (vdisabled    (gensym))
         (vinfo        (gensym))
         (vtest-func   (gensym))
         (vtest-data   (gensym))
@@ -139,6 +173,7 @@ EXAMPLE:
         (vsysout      (gensym))
         (vsyserr      (gensym)))
     `(let ((,videntifier ',identifier)
+           (,vdisabled   ,disabled)
            (,vinfo       ,info)
            (,vtest-func  ,test-func)
            (,vtest-data  ,test-data)
@@ -150,21 +185,32 @@ EXAMPLE:
            (,vsyserr     nil)
            (,vresult     nil))
        (incf test-count)
-       (setf package ',(package-name *package*))
-       (let* ((,vresult      (handler-case
+       (setf package ',(unfuck-sbcl-base-string (package-name *package*)))
+       (let* ((,vresult      (if ,vdisabled
                                  (progn
-                                   (setf ,vsysout
-                                         (with-output-to-string (*standard-output*)
-                                           (setf ,vsyserr
-                                                 (with-output-to-string (*error-output*)
-                                                   (let ((*trace-output* *error-output*))
-                                                     (setf ,vresult (progn ,actual)))))))
-                                   ,vresult)
-                               (:no-error (result)
-                                 result)
-                               (error (err)
-                                 (setf ,verror t)
-                                 err)))
+                                   (setf ,verror :disabled)
+                                   :disabled)
+                                 (handler-case
+                                     (progn
+                                       (setf ,vsysout
+                                             (with-output-to-string (*standard-output*)
+                                               (setf ,vsyserr
+                                                     (with-output-to-string (*error-output*)
+                                                       (let ((*trace-output* *error-output*))
+                                                         (setf ,vresult (progn ,actual)))))))
+                                       ,vresult)
+                                   (:no-error (result)
+                                     result)
+                                   (disable-testcase ()
+                                     (setf ,verror :disabled)
+                                     :disabled)
+                                   (skip-testcase (condition)
+                                     (setf ,vresult (skip-testcase-reason condition)
+                                           ,verror :skipped)
+                                     :skipped)
+                                   (error (err)
+                                     (setf ,verror t)
+                                     err))))
               (*testcase* (list :identifier   ,videntifier
 	                            :info         ,vinfo
                                 :equal        ,vequal
@@ -173,24 +219,43 @@ EXAMPLE:
 	                            :expected     ,vexpected
                                 :expression   ,vexpression
                                 :actual       ,vresult
-                                :error        (if ,verror ,vresult nil)
+                                :failure-type (case ,verror
+                                                ((:disabled) :disabled)
+                                                ((:skipped)  :skipped)
+                                                ((t)         :error)
+                                                (otherwise   nil))
+                                :error        (if (eql 't ,verror)
+                                                  ,vresult
+                                                  nil)
                                 :sysout       ,vsysout
                                 :syserr       ,vsyserr))
-              (,vtest-result (let ((,vtest-result
-                                     (cond
-                                       (,vtest-func (funcall ,vtest-func *testcase* ,vinfo))
-                                       (,verror     nil)
-                                       (,vequal     (not (not (funcall ,vequal ,vexpected ,vresult))))
-			                           (t           (not (not (equal ,vexpected ,vresult)))))))
-                               (cond
-                                 (,verror               :error)
-                                 ((null ,vtest-result)  :failure)
-                                 ((eql ,vtest-result t) :success)
-                                 (t                     ,vtest-result)))))
+              (,vtest-result (or (getf *testcase* :failure-type)
+                                 (let ((,vtest-result
+                                         (handler-case
+                                             (cond
+                                               (,vtest-func (funcall ,vtest-func *testcase* ,vinfo))
+                                               (,verror     nil)
+                                               (,vequal     (not (not (funcall ,vequal ,vexpected ,vresult))))
+			                                   (t           (not (not (equal ,vexpected ,vresult)))))
+                                           (disable-testcase ()
+                                             (setf ,verror :disabled)
+                                             :disabled)
+                                           (skip-testcase (condition)
+                                             (setf ,vresult (skip-testcase-reason condition)
+                                                   ,verror :skipped)
+                                             :skipped)
+                                           (error (err)
+                                             (setf ,vresult err
+                                                   ,verror :error)))))
+                                   (cond
+                                     (,verror               :error)
+                                     ((null ,vtest-result)  :failure)
+                                     ((eql ,vtest-result t) :success)
+                                     (t                     ,vtest-result))))))
          (case ,vtest-result
-           ((:error)    (incf error-count))
+           ((:error)    (incf error-count)   (setf (getf *testcase* :error)  ,vresult))
            ((:failure)  (incf failure-count))
-           ((:skipped)  (incf skipped-count))
+           ((:skipped)  (incf skipped-count) (setf (getf *testcase* :reason) ,vresult))
            ((:disabled) (incf disabled-count)))
 	     (setf (getf *testcase* :result)       ,vtest-result
                (getf *testcase* :failure-type) ,vtest-result)
@@ -311,16 +376,21 @@ Statistics can be calculated during a test run, but the default is to use statis
      (format t "Failure:        The expression: ~S~@
               ~&                  evaluates to: ~S~@
               ~&                  which is not  ~A~@
-              ~&      to the expected testcase: ~S~%"
+              ~&        to the expected result: ~S~%"
              (getf testcase :expression)
              (getf testcase :actual)
-             (or (getf testcase :equal) (getf testcase :test-func) 'equalp)
+             (let ((test-func (getf testcase :test-func)))
+               (if test-func
+                   (if (symbolp test-func)
+                       test-func
+                       "accepted by the test-func")
+                   (or (getf testcase :equal) 'equalp)))
              (getf testcase :expected)))
     ((:error)
      (format t "Testcase ~A:~40T ERROR~%"   (getf testcase :identifier))
      (format t "Error:          The expression: ~S~@
               ~&             signaled an error: ~A~@
-              ~&     the expected testcase was: ~S~%"
+              ~&       the expected result was: ~S~%"
              (getf testcase :expression)
              (getf testcase :error)
              (getf testcase :expected)))
@@ -405,10 +475,11 @@ Statistics can be calculated during a test run, but the default is to use statis
         :time       (prin1-to-string (getf testcase :time 0))
         (case (getf testcase :failure-type)
           ((:success))
+          ((:disabled))
           ((:skipped))
           (cl-who:htm
 		   (:skipped
-            :message (cl-who:escape-string (getf testcase :info))))
+            :message (cl-who:escape-string (getf testcase :reason))))
           ((:error)
            ;; <error message="" <!-- The error message. e.g., if a java exception is thrown, the return value of getMessage() -->
            ;;        type=""    <!-- The type of error that occured. e.g., if a java execption is thrown the full class name of the exception. -->
@@ -474,22 +545,23 @@ Statistics can be calculated during a test run, but the default is to use statis
        :time      (prin1-to-string (getf suite :time))
        :timestamp (getf suite :timestamp)
 
-       ;; <!-- Properties (e.g., environment settings) set during test execution.
-       ;;      The properties element can appear 0 or once. -->
-       ;; <properties>
-       ;;   <!-- property can appear multiple times. The name and value attributres are required. -->
-       ;;   <property name="" value=""/>
-       ;; </properties>
-       (cl-who:htm
-        (:properties
-         (:property :name "LISP-IMPLEMENTATION-TYPE"    :value (cl-who:escape-string (lisp-implementation-type)))
-         (:property :name "LISP-IMPLEMENTATION-VERSION" :value (cl-who:escape-string (lisp-implementation-version)))
-         (:property :name "SOFTWARE-TYPE"               :value (cl-who:escape-string (software-type)))
-         (:property :name "SOFTWARE-VERSION"            :value (cl-who:escape-string (software-version)))
-         (:property :name "MACHINE-INSTANCE"            :value (cl-who:escape-string (machine-instance)))
-         (:property :name "MACHINE-TYPE"                :value (cl-who:escape-string (machine-type)))
-         (:property :name "MACHINE-VERSION"             :value (cl-who:escape-string (machine-version)))
-         (:property :name "*FEATURES*"                  :value (cl-who:escape-string (prin1-to-string *features*))))))
+       (unless *junit-no-properties*
+        ;; <!-- Properties (e.g., environment settings) set during test execution.
+        ;;      The properties element can appear 0 or once. -->
+        ;; <properties>
+        ;;   <!-- property can appear multiple times. The name and value attributres are required. -->
+        ;;   <property name="" value=""/>
+        ;; </properties>
+        (cl-who:htm
+         (:properties
+          (:property :name "LISP-IMPLEMENTATION-TYPE"    :value (cl-who:escape-string (lisp-implementation-type)))
+          (:property :name "LISP-IMPLEMENTATION-VERSION" :value (cl-who:escape-string (lisp-implementation-version)))
+          (:property :name "SOFTWARE-TYPE"               :value (cl-who:escape-string (software-type)))
+          (:property :name "SOFTWARE-VERSION"            :value (cl-who:escape-string (software-version)))
+          (:property :name "MACHINE-INSTANCE"            :value (cl-who:escape-string (machine-instance)))
+          (:property :name "MACHINE-TYPE"                :value (cl-who:escape-string (machine-type)))
+          (:property :name "MACHINE-VERSION"             :value (cl-who:escape-string (machine-version)))
+          (:property :name "*FEATURES*"                  :value (cl-who:escape-string (prin1-to-string *features*)))))))
 
      (write-string (junit-format-testcase (getf suite :testcases))))))
 
