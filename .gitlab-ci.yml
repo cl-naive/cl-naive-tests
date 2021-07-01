@@ -14,4 +14,4 @@ test:
 
   artifacts:
     reports:
-      junit: ~/junit-results.xml
+      junit: /root/src/junit-results.xml
