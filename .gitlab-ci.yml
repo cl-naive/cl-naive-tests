@@ -12,4 +12,6 @@ test:
   script:
      - make -C cl-naive-tests test DEPENDENCYDIR=~/src
 
-
+  artifacts:
+    reports:
+      junit: junit-results.xml
