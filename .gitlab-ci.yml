@@ -14,4 +14,4 @@ test:
 
   artifacts:
     reports:
-      junit: /root/src/cl-naive-tests/junit-results.xml
+      junit: ~/junit-results.xml
