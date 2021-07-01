@@ -11,4 +11,4 @@ $ cat .gitignore
 .#*
 junit-results.xml
 system-index.txt
-
+tests/artifacts
