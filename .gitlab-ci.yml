@@ -10,8 +10,8 @@ before_script:
 test:
   stage: test
   script:
-     - make -C cl-naive-tests test DEPENDENCYDIR=~/src
+     - make -C cl-naive-tests test DEPENDENCYDIR=~/src ARTDIR=$CI_PROJECT_DIR/
 
   artifacts:
     reports:
-      junit: /root/src/junit-results.xml
+      junit: junit-results.xml
