@@ -507,7 +507,7 @@ Statistics can be calculated during a test run, but the default is to use statis
 		    (:error
 		     :message (cl-who:escape-string (princ-to-string (getf testcase :error)))
 		     :type    (cl-who:escape-string (prin1-to-string (class-of (getf testcase :error))))
-		     (cl-who:str (with-output-to-string (out)
+		     (cl-who:esc (with-output-to-string (out)
                            (print-testcase-result testcase :output out))))))
           ((:failure)
            ;; <failure message="" <!-- The message specified in the assert. -->
@@ -517,7 +517,7 @@ Statistics can be calculated during a test run, but the default is to use statis
 		    (:failure
 		     :message (cl-who:escape-string (getf testcase :info))
 		     :type    (cl-who:escape-string (prin1-to-string (or (getf testcase :test-func) (getf testcase :equal))))
-		     (cl-who:str (with-output-to-string (out)
+		     (cl-who:esc (with-output-to-string (out)
                            (print-testcase-result testcase :output out))))))
           (otherwise))
         ;;
