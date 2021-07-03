@@ -519,13 +519,16 @@ Statistics can be calculated during a test run, but the default is to use statis
 		     :type    (cl-who:escape-string (prin1-to-string (or (getf testcase :test-func) (getf testcase :equal))))
 		     (cl-who:str (with-output-to-string (out)
                            (print-testcase-result testcase :output out))))))
-          (otherwise))))
-      ;; <!-- Data that was written to standard out while the test was executed. optional -->
-      ;; <system-out>STDOUT text</system-out>
-      (cl-who:htm (:system-out (cl-who:esc (getf testcase :sysout))))
-      ;; <!-- Data that was written to standard error while the test was executed. optional -->
-      ;; <system-err>STDERR text</system-err>
-      (cl-who:htm (:system-err (cl-who:esc (getf testcase :syserr)))))))
+          (otherwise))
+        ;;
+        ;; Testcase output (testsuite have their own system-out/system-err
+        ;;
+        ;; <!-- Data that was written to standard out while the test was executed. optional -->
+        ;; <system-out>STDOUT text</system-out>
+        (cl-who:htm (:system-out (cl-who:esc (getf testcase :sysout))))
+        ;; <!-- Data that was written to standard error while the test was executed. optional -->
+        ;; <system-err>STDERR text</system-err>
+        (cl-who:htm (:system-err (cl-who:esc (getf testcase :syserr)))))))))
 
 (defvar *suite-id* 0)
 
