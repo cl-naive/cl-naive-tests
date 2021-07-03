@@ -69,6 +69,7 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
                    :failures  failure-count
                    :disabled  disabled-count
                    :skipped   skipped-count
+                   :hostname  (machine-instance)
                    :package   (or package (unfuck-sbcl-base-string (package-name *package*)))
                    :time      (- (get-universal-time) start-time)
                    :timestamp timestamp
@@ -281,6 +282,7 @@ The default method just outputs the results using lisp format string."))
 
 (defun save-results (suites-results &key (file "results.log") format)
   "Writes results to file. Formats the results using FORMAT-RESULT."
+  (ensure-directories-exist file)
   (with-open-file (stream file
 			              :direction :output
 			              :if-exists :supersede
@@ -534,13 +536,13 @@ Statistics can be calculated during a test run, but the default is to use statis
      ;;   >
 	 (:testsuite
 		 :id      (prin1-to-string (incf *suite-id*))
-	   :name      (prin1-to-string (getf suite :identifier))
+	   :name      (substitute #\- #\: (prin1-to-string (getf suite :identifier))) ; test if gitlab-ci prefers that.
        :tests     (prin1-to-string (getf suite :tests))
        :disabled  (prin1-to-string (getf suite :disabled))
        :errors    (prin1-to-string (getf suite :errors))
        :failures  (prin1-to-string (getf suite :failures))
        :skipped   (prin1-to-string (getf suite :skipped))
-       :hostname  (machine-instance)
+       :hostname  (prin1-to-string (getf suite :hostname "localhost"))
        :package   (getf suite :package)
        :time      (prin1-to-string (getf suite :time))
        :timestamp (getf suite :timestamp)
