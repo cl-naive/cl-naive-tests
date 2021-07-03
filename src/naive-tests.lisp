@@ -91,6 +91,21 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
 (defun skip-testcase (&optional (message "Test case is skipped."))
   (signal 'skip-testcase :reason message))
 
+(defun prepare-filename (pathname)
+  (let ((ci-project-dir (uiop:getenv "CI_PROJECT_DIR"))
+        (asdf-output-translations (namestring (asdf:apply-output-translations "/")))
+        (namestring (namestring pathname)))
+    (let ((namestring
+            (namestring (make-pathname :type "lisp"
+                                       :defaults (if (string= namestring asdf-output-translations :end1 (length asdf-output-translations))
+                                                     ;; in asdf-output-translations:
+                                                     (subseq namestring (1- (length asdf-output-translations)))
+                                                     ;; outside:
+                                                     namestring)))))
+      (if ci-project-dir
+          (enough-namestring namestring (format nil "~A/" ci-project-dir))
+          namestring))))
+
 (defmacro testcase (identifier &key disabled test-func test-data (equal ''equal) expected actual info)
   ;; Better to use a function name than a function for equal, because it's used in reports.
   "The TEST macro evaluates the ACTUAL expression and compare its result with the EXPECTED expression.
@@ -198,6 +213,8 @@ EXAMPLE:
                                                (setf ,vsyserr
                                                      (with-output-to-string (*error-output*)
                                                        (let ((*trace-output* *error-output*))
+                                                         (let ((filename  (prepare-filename (load-time-value *load-truename*))))
+                                                           (format t "[[ATTACHMENT|~A]]~%" filename))
                                                          (setf ,vresult (progn ,actual)))))))
                                        ,vresult)
                                    (:no-error (result)
@@ -535,19 +552,19 @@ Statistics can be calculated during a test run, but the default is to use statis
      ;;                     not supported by maven surefire. -->
      ;;   >
 	 (:testsuite
-		 :id      (prin1-to-string (incf *suite-id*))
-	   :name      (substitute #\- #\: (prin1-to-string (getf suite :identifier))) ; test if gitlab-ci prefers that.
-       :tests     (prin1-to-string (getf suite :tests))
-       :disabled  (prin1-to-string (getf suite :disabled))
-       :errors    (prin1-to-string (getf suite :errors))
-       :failures  (prin1-to-string (getf suite :failures))
-       :skipped   (prin1-to-string (getf suite :skipped))
-       :hostname  (getf suite :hostname "localhost")
-       :package   (getf suite :package)
-       :time      (prin1-to-string (getf suite :time))
-       :timestamp (getf suite :timestamp)
+	  :id      (prin1-to-string (incf *suite-id*))
+	  :name      (substitute #\- #\: (prin1-to-string (getf suite :identifier))) ; test if gitlab-ci prefers that.
+      :tests     (prin1-to-string (getf suite :tests))
+      :disabled  (prin1-to-string (getf suite :disabled))
+      :errors    (prin1-to-string (getf suite :errors))
+      :failures  (prin1-to-string (getf suite :failures))
+      :skipped   (prin1-to-string (getf suite :skipped))
+      :hostname  (getf suite :hostname "localhost")
+      :package   (getf suite :package)
+      :time      (prin1-to-string (getf suite :time))
+      :timestamp (getf suite :timestamp)
 
-       (unless *junit-no-properties*
+      (unless *junit-no-properties*
         ;; <!-- Properties (e.g., environment settings) set during test execution.
         ;;      The properties element can appear 0 or once. -->
         ;; <properties>
