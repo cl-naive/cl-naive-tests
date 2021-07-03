@@ -69,6 +69,7 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
                    :failures  failure-count
                    :disabled  disabled-count
                    :skipped   skipped-count
+                   :hostname  (machine-instance)
                    :package   (or package (unfuck-sbcl-base-string (package-name *package*)))
                    :time      (- (get-universal-time) start-time)
                    :timestamp timestamp
@@ -89,6 +90,21 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
 (declaim (inline skip-testcase))
 (defun skip-testcase (&optional (message "Test case is skipped."))
   (signal 'skip-testcase :reason message))
+
+(defun prepare-filename (pathname)
+  (let ((ci-project-dir (uiop:getenv "CI_PROJECT_DIR"))
+        (asdf-output-translations (namestring (asdf:apply-output-translations "/")))
+        (namestring (namestring pathname)))
+    (let ((namestring
+            (namestring (make-pathname :type "lisp"
+                                       :defaults (if (string= namestring asdf-output-translations :end1 (length asdf-output-translations))
+                                                     ;; in asdf-output-translations:
+                                                     (subseq namestring (1- (length asdf-output-translations)))
+                                                     ;; outside:
+                                                     namestring)))))
+      (if ci-project-dir
+          (enough-namestring namestring (format nil "~A/" ci-project-dir))
+          namestring))))
 
 (defmacro testcase (identifier &key disabled test-func test-data (equal ''equal) expected actual info)
   ;; Better to use a function name than a function for equal, because it's used in reports.
@@ -197,6 +213,8 @@ EXAMPLE:
                                                (setf ,vsyserr
                                                      (with-output-to-string (*error-output*)
                                                        (let ((*trace-output* *error-output*))
+                                                         (let ((filename  (prepare-filename (load-time-value *load-truename*))))
+                                                           (format t "[[ATTACHMENT|~A]]~%" filename))
                                                          (setf ,vresult (progn ,actual)))))))
                                        ,vresult)
                                    (:no-error (result)
@@ -281,6 +299,7 @@ The default method just outputs the results using lisp format string."))
 
 (defun save-results (suites-results &key (file "results.log") format)
   "Writes results to file. Formats the results using FORMAT-RESULT."
+  (ensure-directories-exist file)
   (with-open-file (stream file
 			              :direction :output
 			              :if-exists :supersede
@@ -488,7 +507,7 @@ Statistics can be calculated during a test run, but the default is to use statis
 		    (:error
 		     :message (cl-who:escape-string (princ-to-string (getf testcase :error)))
 		     :type    (cl-who:escape-string (prin1-to-string (class-of (getf testcase :error))))
-		     (cl-who:str (with-output-to-string (out)
+		     (cl-who:esc (with-output-to-string (out)
                            (print-testcase-result testcase :output out))))))
           ((:failure)
            ;; <failure message="" <!-- The message specified in the assert. -->
@@ -498,15 +517,18 @@ Statistics can be calculated during a test run, but the default is to use statis
 		    (:failure
 		     :message (cl-who:escape-string (getf testcase :info))
 		     :type    (cl-who:escape-string (prin1-to-string (or (getf testcase :test-func) (getf testcase :equal))))
-		     (cl-who:str (with-output-to-string (out)
+		     (cl-who:esc (with-output-to-string (out)
                            (print-testcase-result testcase :output out))))))
-          (otherwise))))
-      ;; <!-- Data that was written to standard out while the test was executed. optional -->
-      ;; <system-out>STDOUT text</system-out>
-      (cl-who:htm (:system-out (cl-who:str (getf testcase :sysout))))
-      ;; <!-- Data that was written to standard error while the test was executed. optional -->
-      ;; <system-err>STDERR text</system-err>
-      (cl-who:htm (:system-err (cl-who:str (getf testcase :syserr)))))))
+          (otherwise))
+        ;;
+        ;; Testcase output (testsuite have their own system-out/system-err
+        ;;
+        ;; <!-- Data that was written to standard out while the test was executed. optional -->
+        ;; <system-out>STDOUT text</system-out>
+        (cl-who:htm (:system-out (cl-who:esc (getf testcase :sysout))))
+        ;; <!-- Data that was written to standard error while the test was executed. optional -->
+        ;; <system-err>STDERR text</system-err>
+        (cl-who:htm (:system-err (cl-who:esc (getf testcase :syserr)))))))))
 
 (defvar *suite-id* 0)
 
@@ -533,19 +555,19 @@ Statistics can be calculated during a test run, but the default is to use statis
      ;;                     not supported by maven surefire. -->
      ;;   >
 	 (:testsuite
-		 :id      (prin1-to-string (incf *suite-id*))
-	   :name      (prin1-to-string (getf suite :identifier))
-       :tests     (prin1-to-string (getf suite :tests))
-       :disabled  (prin1-to-string (getf suite :disabled))
-       :errors    (prin1-to-string (getf suite :errors))
-       :failures  (prin1-to-string (getf suite :failures))
-       :skipped   (prin1-to-string (getf suite :skipped))
-       :hostname  (machine-instance)
-       :package   (getf suite :package)
-       :time      (prin1-to-string (getf suite :time))
-       :timestamp (getf suite :timestamp)
+	  :id      (prin1-to-string (incf *suite-id*))
+	  :name      (substitute #\- #\: (prin1-to-string (getf suite :identifier))) ; test if gitlab-ci prefers that.
+      :tests     (prin1-to-string (getf suite :tests))
+      :disabled  (prin1-to-string (getf suite :disabled))
+      :errors    (prin1-to-string (getf suite :errors))
+      :failures  (prin1-to-string (getf suite :failures))
+      :skipped   (prin1-to-string (getf suite :skipped))
+      :hostname  (getf suite :hostname "localhost")
+      :package   (getf suite :package)
+      :time      (prin1-to-string (getf suite :time))
+      :timestamp (getf suite :timestamp)
 
-       (unless *junit-no-properties*
+      (unless *junit-no-properties*
         ;; <!-- Properties (e.g., environment settings) set during test execution.
         ;;      The properties element can appear 0 or once. -->
         ;; <properties>
@@ -561,9 +583,9 @@ Statistics can be calculated during a test run, but the default is to use statis
           (:property :name "MACHINE-INSTANCE"            :value (cl-who:escape-string (machine-instance)))
           (:property :name "MACHINE-TYPE"                :value (cl-who:escape-string (machine-type)))
           (:property :name "MACHINE-VERSION"             :value (cl-who:escape-string (machine-version)))
-          (:property :name "*FEATURES*"                  :value (cl-who:escape-string (prin1-to-string *features*)))))))
+          (:property :name "*FEATURES*"                  :value (cl-who:escape-string (prin1-to-string *features*))))))
 
-     (write-string (junit-format-testcase (getf suite :testcases))))))
+      (write-string (junit-format-testcase (getf suite :testcases)))))))
 
 (defun junit-format-testsuites (suites)
   (cl-who:with-html-output-to-string (*standard-output* nil :indent nil)

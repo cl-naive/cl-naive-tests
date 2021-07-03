@@ -99,7 +99,7 @@
                       nil)))))
     (node-equal-p a b)))
 
-(defparameter *result-wildcards* '(:time :timestamp :sysout :syserr))
+(defparameter *result-wildcards* '(:time :timestamp :hostname :sysout :syserr))
 
 (defun suites-results-equal-p (testcase info)
   (plist-tree-equal-p (getf testcase :actual)
@@ -155,12 +155,11 @@
 
     (testcase :format-junit
               :equal 'string=
-		      :expected "<?xml version=\"1.0\" encoding=\"UTF-8\" ?><testsuites id='TESTED-SUITES' name='TESTED-SUITES' disabled='0' error='0' failures='0' tests='2' time='0'><testsuite id='0' name=':TESTED-TESTSUITE' tests='2' disabled='0' errors='0' failures='0' skipped='0' hostname='despina.home' package='CL-NAIVE-TESTS.TESTS' time='NIL'></testsuite><testcase id='EISH' name='EISH' assertions='0' classname='' status='SUCCESSFUL' time='0'></testcase><system-out></system-out><system-err></system-err><testcase id='HSIE' name='HSIE' assertions='0' classname='' status='SUCCESSFUL' time='0'></testcase><system-out></system-out><system-err></system-err></testsuites>"
-			  :actual  (print (with-standard-io-syntax
-                                (let ((cl-naive-tests:*junit-no-properties* t))
-                                  (format-results :junit (plist-tree-without-wildcards suites-results *result-wildcards*)))))
-		      :info "tested-testuit formatted results (junit)")
-
+		      :expected "<?xml version=\"1.0\" encoding=\"UTF-8\" ?><testsuites id='TESTED-SUITES' name='TESTED-SUITES' disabled='0' error='0' failures='0' tests='2' time='0'><testsuite id='0' name='-TESTED-TESTSUITE' tests='2' disabled='0' errors='0' failures='0' skipped='0' hostname='localhost' package='CL-NAIVE-TESTS.TESTS' time='NIL'><testcase id='EISH' name='EISH' assertions='0' classname='' status='SUCCESSFUL' time='0'><system-out></system-out><system-err></system-err></testcase><testcase id='HSIE' name='HSIE' assertions='0' classname='' status='SUCCESSFUL' time='0'><system-out></system-out><system-err></system-err></testcase></testsuite></testsuites>"
+			  :actual (with-standard-io-syntax
+                         (let ((cl-naive-tests:*junit-no-properties* t))
+                           (format-results :junit (plist-tree-without-wildcards suites-results *result-wildcards*))))
+              :info "tested-testsuite formatted results (junit)")
     ))
 
 ;;(report (run))
