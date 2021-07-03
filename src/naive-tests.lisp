@@ -563,9 +563,9 @@ Statistics can be calculated during a test run, but the default is to use statis
           (:property :name "MACHINE-INSTANCE"            :value (cl-who:escape-string (machine-instance)))
           (:property :name "MACHINE-TYPE"                :value (cl-who:escape-string (machine-type)))
           (:property :name "MACHINE-VERSION"             :value (cl-who:escape-string (machine-version)))
-          (:property :name "*FEATURES*"                  :value (cl-who:escape-string (prin1-to-string *features*)))))))
+          (:property :name "*FEATURES*"                  :value (cl-who:escape-string (prin1-to-string *features*))))))
 
-     (write-string (junit-format-testcase (getf suite :testcases))))))
+      (write-string (junit-format-testcase (getf suite :testcases)))))))
 
 (defun junit-format-testsuites (suites)
   (cl-who:with-html-output-to-string (*standard-output* nil :indent nil)
