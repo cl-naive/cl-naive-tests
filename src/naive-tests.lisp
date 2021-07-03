@@ -542,7 +542,7 @@ Statistics can be calculated during a test run, but the default is to use statis
        :errors    (prin1-to-string (getf suite :errors))
        :failures  (prin1-to-string (getf suite :failures))
        :skipped   (prin1-to-string (getf suite :skipped))
-       :hostname  (prin1-to-string (getf suite :hostname "localhost"))
+       :hostname  (getf suite :hostname "localhost")
        :package   (getf suite :package)
        :time      (prin1-to-string (getf suite :time))
        :timestamp (getf suite :timestamp)
