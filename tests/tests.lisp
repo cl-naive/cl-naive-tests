@@ -159,8 +159,7 @@
 			  :actual (with-standard-io-syntax
                          (let ((cl-naive-tests:*junit-no-properties* t))
                            (format-results :junit (plist-tree-without-wildcards suites-results *result-wildcards*))))
-		      :info "tested-testsuite formatted results (junit)")
-
+              :info "tested-testsuite formatted results (junit)")
     ))
 
 ;;(report (run))
