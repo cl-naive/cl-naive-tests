@@ -522,10 +522,10 @@ Statistics can be calculated during a test run, but the default is to use statis
           (otherwise))))
       ;; <!-- Data that was written to standard out while the test was executed. optional -->
       ;; <system-out>STDOUT text</system-out>
-      (cl-who:htm (:system-out (cl-who:str (getf testcase :sysout))))
+      (cl-who:htm (:system-out (cl-who:esc (getf testcase :sysout))))
       ;; <!-- Data that was written to standard error while the test was executed. optional -->
       ;; <system-err>STDERR text</system-err>
-      (cl-who:htm (:system-err (cl-who:str (getf testcase :syserr)))))))
+      (cl-who:htm (:system-err (cl-who:esc (getf testcase :syserr)))))))
 
 (defvar *suite-id* 0)
 
