@@ -8,28 +8,27 @@
 
 (testsuite :test-pass
   (testcase :without-test-func
-		    :expected t
-			:actual t
-		    :info "(equal t t)")
+	    :expected t
+	    :actual t
+	    :info "(equal t t)")
   (testcase :with-test-func
-		    :test-func #'(lambda (data info)
-				           (declare (ignore data info))
-				           (equalp t t))
-		    :info "(equal t t)"))
+	    :test-func #'(lambda (data info)
+			   (declare (ignore data info))
+			   (equalp t t))
+	    :info "(equal t t)"))
 
 (testsuite :test-fail
   (testcase :without-test-func
             :disabled *disable-failure-tests*
-		    :expected nil
-			:actual t
-		    :info "(equal nil t)")
+	    :expected nil
+	    :actual t
+	    :info "(equal nil t)")
   (testcase :with-test-func
             :disabled *disable-failure-tests*
-		    :test-func #'(lambda (data info)
-				           (declare (ignore data info))
-				           (equalp nil t))
-		    :info "(equalp nil t)"))
-
+	    :test-func #'(lambda (data info)
+			   (declare (ignore data info))
+			   (equalp nil t))
+	    :info "(equalp nil t)"))
 
 (defun plist-keys (plist)
   (loop :for (key nil) :on plist :by (function cddr)
@@ -40,11 +39,11 @@
 
 (defmacro show (x)
   (let ((vresult (gensym)))
-   `(let ((,vresult ,x))
-      (format *terminal-io* "~%if ~S -> ~S"
-              ',x ,vresult)
-      (finish-output *terminal-io*)
-      ,vresult)))
+    `(let ((,vresult ,x))
+       (format *terminal-io* "~%if ~S -> ~S"
+	       ',x ,vresult)
+       (finish-output *terminal-io*)
+       ,vresult)))
 
 (defun plist-tree-without-wildcards (tree wildcard-keys)
   (labels ((process-node (node)
@@ -114,52 +113,60 @@
 
              (testsuite :tested-testsuite
                (testcase :eish
-			             :expected t
-			             :actual t
-			             :info "(equal t t)")
+			 :expected t
+			 :actual t
+			 :info "(equal t t)")
                (testcase :hsie
-				         :expected t
-				         :actual t
-				         :info "(equal t t)"))
+			 :expected t
+			 :actual t
+			 :info "(equal t t)"))
 
              (run :debug nil :name :tested-suites))))
 
     (testcase :results
-		      :expected '(:SUITES
+	      :expected '(:SUITES
                           ((:TESTCASES
                             ((:ERROR NIL :FAILURE-TYPE :SUCCESS :ACTUAL
-                                     T :EXPRESSION T :EXPECTED T :TEST-DATA NIL
+			      T :EXPRESSION T :EXPECTED T :TEST-DATA NIL
                               :TEST-FUNC NIL :EQUAL EQUAL :INFO
-                                     "(equal t t)" :IDENTIFIER :EISH :RESULT
-                                                       :SUCCESS)
+			      "(equal t t)" :IDENTIFIER :EISH :RESULT
+			      :SUCCESS)
                              (:ERROR NIL :FAILURE-TYPE :SUCCESS :ACTUAL
-                                     T :EXPRESSION T :EXPECTED T :TEST-DATA NIL
+			      T :EXPRESSION T :EXPECTED T :TEST-DATA NIL
                               :TEST-FUNC NIL :EQUAL EQUAL :INFO
-                                     "(equal t t)" :IDENTIFIER :HSIE :RESULT
-                                                       :SUCCESS))
+			      "(equal t t)" :IDENTIFIER :HSIE :RESULT
+			      :SUCCESS))
                             :PACKAGE "CL-NAIVE-TESTS.TESTS" :SKIPPED 0
                             :DISABLED 0 :FAILURES 0 :ERRORS 0 :TESTS 2
                             :IDENTIFIER :TESTED-TESTSUITE))
                           :TESTS 2 :FAILURES 0 :ERRORS 0 :SKIPPED 0
                           :DISABLED 0 :NAME :TESTED-SUITES)
               :test-func 'suites-results-equal-p
-			  :actual (plist-tree-without-wildcards suites-results *result-wildcards*)
-		      :info "tested-testsuite results")
+	      :actual (plist-tree-without-wildcards suites-results *result-wildcards*)
+	      :info "tested-testsuite results")
 
     (testcase :format-default
               :equal 'string=
-		      :expected  "(:SUITES ((:TESTCASES ((:ERROR NIL :FAILURE-TYPE :SUCCESS :ACTUAL T :EXPRESSION T :EXPECTED T :TEST-DATA NIL :TEST-FUNC NIL :EQUAL EQUAL :INFO \"(equal t t)\" :IDENTIFIER :EISH :RESULT :SUCCESS) (:ERROR NIL :FAILURE-TYPE :SUCCESS :ACTUAL T :EXPRESSION T :EXPECTED T :TEST-DATA NIL :TEST-FUNC NIL :EQUAL EQUAL :INFO \"(equal t t)\" :IDENTIFIER :HSIE :RESULT :SUCCESS)) :PACKAGE \"CL-NAIVE-TESTS.TESTS\" :SKIPPED 0 :DISABLED 0 :FAILURES 0 :ERRORS 0 :TESTS 2 :IDENTIFIER :TESTED-TESTSUITE)) :TESTS 2 :FAILURES 0 :ERRORS 0 :SKIPPED 0 :DISABLED 0 :NAME :TESTED-SUITES)"
-			  :actual (with-standard-io-syntax
+	      :expected  "(:SUITES ((:TESTCASES ((:ERROR NIL :FAILURE-TYPE :SUCCESS :ACTUAL T :EXPRESSION T :EXPECTED T :TEST-DATA NIL :TEST-FUNC NIL :EQUAL EQUAL :INFO \"(equal t t)\" :IDENTIFIER :EISH :RESULT :SUCCESS) (:ERROR NIL :FAILURE-TYPE :SUCCESS :ACTUAL T :EXPRESSION T :EXPECTED T :TEST-DATA NIL :TEST-FUNC NIL :EQUAL EQUAL :INFO \"(equal t t)\" :IDENTIFIER :HSIE :RESULT :SUCCESS)) :PACKAGE \"CL-NAIVE-TESTS.TESTS\" :SKIPPED 0 :DISABLED 0 :FAILURES 0 :ERRORS 0 :TESTS 2 :IDENTIFIER :TESTED-TESTSUITE)) :TESTS 2 :FAILURES 0 :ERRORS 0 :SKIPPED 0 :DISABLED 0 :NAME :TESTED-SUITES)"
+	      :actual (with-standard-io-syntax
                         (format-results t (plist-tree-without-wildcards suites-results *result-wildcards*)))
-		      :info "tested-testsuite formatted results (default)")
+	      :info "tested-testsuite formatted results (default)")
 
     (testcase :format-junit
               :equal 'string=
+<<<<<<< HEAD
 		      :expected "<?xml version=\"1.0\" encoding=\"UTF-8\" ?><testsuites id='TESTED-SUITES' name='TESTED-SUITES' disabled='0' error='0' failures='0' tests='2' time='0'><testsuite id='0' name='-TESTED-TESTSUITE' tests='2' disabled='0' errors='0' failures='0' skipped='0' hostname='localhost' package='CL-NAIVE-TESTS.TESTS' time='NIL'><testcase id='EISH' name='EISH' assertions='0' classname='' status='SUCCESSFUL' time='0'><system-out></system-out><system-err></system-err></testcase><testcase id='HSIE' name='HSIE' assertions='0' classname='' status='SUCCESSFUL' time='0'><system-out></system-out><system-err></system-err></testcase></testsuite></testsuites>"
 			  :actual (with-standard-io-syntax
                          (let ((cl-naive-tests:*junit-no-properties* t))
                            (format-results :junit (plist-tree-without-wildcards suites-results *result-wildcards*))))
               :info "tested-testsuite formatted results (junit)")
     ))
+=======
+	      :expected "<?xml version=\"1.0\" encoding=\"UTF-8\" ?><testsuites id='TESTED-SUITES' name='TESTED-SUITES' disabled='0' error='0' failures='0' tests='2' time='0'><testsuite id='0' name=':TESTED-TESTSUITE' tests='2' disabled='0' errors='0' failures='0' skipped='0' hostname='despina.home' package='CL-NAIVE-TESTS.TESTS' time='NIL'></testsuite><testcase id='EISH' name='EISH' assertions='0' classname='' status='SUCCESSFUL' time='0'></testcase><system-out></system-out><system-err></system-err><testcase id='HSIE' name='HSIE' assertions='0' classname='' status='SUCCESSFUL' time='0'></testcase><system-out></system-out><system-err></system-err></testsuites>"
+	      :actual  (print (with-standard-io-syntax
+                                (let ((cl-naive-tests:*junit-no-properties* t))
+                                  (format-results :junit (plist-tree-without-wildcards suites-results *result-wildcards*)))))
+	      :info "tested-testuit formatted results (junit)")))
+>>>>>>> 0ff33b5 (icon)
 
 ;;(report (run))
