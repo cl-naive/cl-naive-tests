@@ -561,7 +561,7 @@ Statistics can be calculated during a test run, but the default is to use statis
      ;;                     not supported by maven surefire. -->
      ;;   >
 	 (:testsuite
-	  :id        (prin1-to-string (incf *suite-id*))
+	  :id        (prepare-testsuite-name (princ-to-string (getf suite :identifier))) ; (prin1-to-string (incf *suite-id*))
 	  :name      (prepare-testsuite-name (princ-to-string (getf suite :identifier)))
       :package   (getf suite :package)
       :tests     (prin1-to-string (getf suite :tests    0))
