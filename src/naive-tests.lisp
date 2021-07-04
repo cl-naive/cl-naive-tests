@@ -441,9 +441,8 @@ Statistics can be calculated during a test run, but the default is to use statis
 ;;; JUNIT format
 ;;; ========================================
 
-(defun junit-format-testcase (testcases)
+(defun junit-format-testcase (testcase)
   (cl-who:with-html-output-to-string (*standard-output* nil :indent nil)
-    (dolist (testcase testcases)
       ;; <!-- testcase can appear multiple times, see /testsuites/testsuite@tests -->
       ;; <testcase name=""       <!-- Name of the test method, required. -->
 	  ;;       assertions="" <!-- number of assertions in the test case. optional. not supported by maven surefire. -->
@@ -528,9 +527,16 @@ Statistics can be calculated during a test run, but the default is to use statis
         (cl-who:htm (:system-out (cl-who:esc (getf testcase :sysout))))
         ;; <!-- Data that was written to standard error while the test was executed. optional -->
         ;; <system-err>STDERR text</system-err>
-        (cl-who:htm (:system-err (cl-who:esc (getf testcase :syserr)))))))))
+        (cl-who:htm (:system-err (cl-who:esc (getf testcase :syserr))))))))
 
 (defvar *suite-id* 0)
+
+(defun prepare-testsuite-name (name)
+  (loop
+    :for (new old) :in '((#\_ #\-) (#\. #\:))
+    :for changed := (substitute new old (string-downcase name))
+      :then (substitute new old changed)
+    :finally (return changed)))
 
 (defun junit-format-testsuite (suite)
   (cl-who:with-html-output-to-string (*standard-output* nil :indent nil)
@@ -555,17 +561,17 @@ Statistics can be calculated during a test run, but the default is to use statis
      ;;                     not supported by maven surefire. -->
      ;;   >
 	 (:testsuite
-	  :id      (prin1-to-string (incf *suite-id*))
-	  :name      (substitute #\- #\: (prin1-to-string (getf suite :identifier))) ; test if gitlab-ci prefers that.
-      :tests     (prin1-to-string (getf suite :tests))
-      :disabled  (prin1-to-string (getf suite :disabled))
-      :errors    (prin1-to-string (getf suite :errors))
-      :failures  (prin1-to-string (getf suite :failures))
-      :skipped   (prin1-to-string (getf suite :skipped))
-      :hostname  (getf suite :hostname "localhost")
+	  :id        (prin1-to-string (incf *suite-id*))
+	  :name      (prepare-testsuite-name (princ-to-string (getf suite :identifier)))
       :package   (getf suite :package)
-      :time      (prin1-to-string (getf suite :time))
+      :tests     (prin1-to-string (getf suite :tests    0))
+      :disabled  (prin1-to-string (getf suite :disabled 0))
+      :errors    (prin1-to-string (getf suite :errors   0))
+      :failures  (prin1-to-string (getf suite :failures 0))
+      :skipped   (prin1-to-string (getf suite :skipped  0))
+      :time      (prin1-to-string (getf suite :time     0))
       :timestamp (getf suite :timestamp)
+      :hostname  (getf suite :hostname "localhost")
 
       (unless *junit-no-properties*
         ;; <!-- Properties (e.g., environment settings) set during test execution.
@@ -585,7 +591,8 @@ Statistics can be calculated during a test run, but the default is to use statis
           (:property :name "MACHINE-VERSION"             :value (cl-who:escape-string (machine-version)))
           (:property :name "*FEATURES*"                  :value (cl-who:escape-string (prin1-to-string *features*))))))
 
-      (write-string (junit-format-testcase (getf suite :testcases)))))))
+      (dolist (testcase (getf suite :testcases))
+        (write-string (junit-format-testcase testcase)))))))
 
 (defun junit-format-testsuites (suites)
   (cl-who:with-html-output-to-string (*standard-output* nil :indent nil)
@@ -598,7 +605,8 @@ Statistics can be calculated during a test run, but the default is to use statis
     ;;     >
 	(cl-who:htm
      (:testsuites
-      :id (getf suites :name) :name (getf suites :name)
+      :id   (prepare-testsuite-name (getf suites :name))
+      :name (prepare-testsuite-name (getf suites :name))
       :disabled (prin1-to-string (getf suites :disabled  0))
       :error    (prin1-to-string (getf suites :errors    0))
       :failures (prin1-to-string (getf suites :failures  0))
