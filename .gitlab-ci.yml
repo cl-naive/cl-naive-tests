@@ -4,6 +4,7 @@ stages:
   - test
 
 before_script:
+  - pwd
   - export
   - cd ~/src
   - git clone -b "$CI_COMMIT_BRANCH" https://gitlab-ci-token:$CI_JOB_TOKEN@gitlab.com/Harag/cl-naive-tests.git
