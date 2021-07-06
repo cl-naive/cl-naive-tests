@@ -13,4 +13,4 @@ test:
 
   artifacts:
     reports:
-      junit: junit-results.xml
+      junit: tests/artifacts/junit-results.xml
