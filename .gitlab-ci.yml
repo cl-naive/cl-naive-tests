@@ -9,10 +9,11 @@ before_script:
 test:
   stage: test
   script:
-     - make test "DEPENDENCYDIR=${CI_PROJECT_DIR}/../"
+      - make test "DEPENDENCYDIR=${CI_PROJECT_DIR}/../"
 
   artifacts:
+    paths:
+      - tests/tests.lisp
     reports:
       junit: tests/artifacts/junit-results.xml
-    paths:
-      ['tests/tests.lisp']
+
