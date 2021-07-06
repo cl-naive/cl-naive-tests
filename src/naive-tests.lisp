@@ -445,6 +445,16 @@ Statistics can be calculated during a test run, but the default is to use statis
 ;;; JUNIT format
 ;;; ========================================
 
+;; Note: gitlab-ci still doesn't display the testsuites and testsuite names,
+;; and neither is the URL built from the [[ATTACHMENT]] path valid for an
+;; artifact download or other.
+;;
+;; We'll ignore the path for now, and compensate for the missing
+;; testuite name, by prepending it to the testcase name.
+
+(defvar *suite-name* "" "Current testsuite name.")
+
+
 (defun junit-format-testcase (testcase)
   (cl-who:with-html-output-to-string (*standard-output* nil :indent nil)
       ;; <!-- testcase can appear multiple times, see /testsuites/testsuite@tests -->
@@ -485,8 +495,7 @@ Statistics can be calculated during a test run, but the default is to use statis
       ;; </testcase>
 	  (cl-who:htm
 	   (:testcase
-        :id         (getf testcase :identifier)
-	    :name       (getf testcase :identifier)
+	    :name       (format nil "~A.~A" *suite-name* (getf testcase :identifier))
         :assertions (prin1-to-string (getf testcase :assertions 0))
         :classname  (princ-to-string (getf testcase :classname ""))
         :status     (princ-to-string (or (getf testcase :status)
@@ -533,6 +542,8 @@ Statistics can be calculated during a test run, but the default is to use statis
         ;; <system-err>STDERR text</system-err>
         (cl-who:htm (:system-err (cl-who:esc (getf testcase :syserr))))))))
 
+
+
 (defvar *suite-id* 0)
 
 (defun prepare-testsuite-name (name)
@@ -543,60 +554,61 @@ Statistics can be calculated during a test run, but the default is to use statis
     :finally (return changed)))
 
 (defun junit-format-testsuite (suite)
-  (cl-who:with-html-output-to-string (*standard-output* nil :indent nil)
-	(cl-who:htm
-     ;; <!-- testsuite can appear multiple times, if contained in a testsuites element.
-     ;;      It can also be the root element. -->
-     ;; <testsuite name=""      <!-- Full (class) name of the test for non-aggregated testsuite documents.
-     ;;                              Class name without the package for aggregated testsuites documents. Required -->
-     ;;   tests=""     <!-- The total number of tests in the suite, required. -->
-     ;;   disabled=""  <!-- the total number of disabled tests in the suite. optional. not supported by maven surefire. -->
-     ;;   errors=""    <!-- The total number of tests in the suite that errored. An errored test is one that had an unanticipated problem,
-     ;;                     for example an unchecked throwable; or a problem with the implementation of the test. optional -->
-     ;;   failures=""  <!-- The total number of tests in the suite that failed. A failure is a test which the code has explicitly failed
-     ;;                     by using the mechanisms for that purpose. e.g., via an assertEquals. optional -->
-     ;;   hostname=""  <!-- Host on which the tests were executed. 'localhost' should be used if the hostname cannot be determined. optional.
-     ;;                     not supported by maven surefire. -->
-     ;;   id=""        <!-- Starts at 0 for the first testsuite and is incremented by 1 for each following testsuite. optional. not supported by maven surefire. -->
-     ;;   package=""   <!-- Derived from testsuite/@name in the non-aggregated documents. optional. not supported by maven surefire. -->
-     ;;   skipped=""   <!-- The total number of skipped tests. optional -->
-     ;;   time=""      <!-- Time taken (in seconds) to execute the tests in the suite. optional -->
-     ;;   timestamp="" <!-- when the test was executed in ISO 8601 format (2014-01-21T16:17:18). Timezone may not be specified. optional.
-     ;;                     not supported by maven surefire. -->
-     ;;   >
-	 (:testsuite
-	  :id        (prepare-testsuite-name (princ-to-string (getf suite :identifier))) ; (prin1-to-string (incf *suite-id*))
-	  :name      (prepare-testsuite-name (princ-to-string (getf suite :identifier)))
-      :package   (getf suite :package)
-      :tests     (prin1-to-string (getf suite :tests    0))
-      :disabled  (prin1-to-string (getf suite :disabled 0))
-      :errors    (prin1-to-string (getf suite :errors   0))
-      :failures  (prin1-to-string (getf suite :failures 0))
-      :skipped   (prin1-to-string (getf suite :skipped  0))
-      :time      (prin1-to-string (getf suite :time     0))
-      :timestamp (getf suite :timestamp)
-      :hostname  (getf suite :hostname "localhost")
+  (let ((*suite-name* (prepare-testsuite-name (princ-to-string (getf suite :identifier)))))
+    (cl-who:with-html-output-to-string (*standard-output* nil :indent nil)
+	  (cl-who:htm
+       ;; <!-- testsuite can appear multiple times, if contained in a testsuites element.
+       ;;      It can also be the root element. -->
+       ;; <testsuite name=""      <!-- Full (class) name of the test for non-aggregated testsuite documents.
+       ;;                              Class name without the package for aggregated testsuites documents. Required -->
+       ;;   tests=""     <!-- The total number of tests in the suite, required. -->
+       ;;   disabled=""  <!-- the total number of disabled tests in the suite. optional. not supported by maven surefire. -->
+       ;;   errors=""    <!-- The total number of tests in the suite that errored. An errored test is one that had an unanticipated problem,
+       ;;                     for example an unchecked throwable; or a problem with the implementation of the test. optional -->
+       ;;   failures=""  <!-- The total number of tests in the suite that failed. A failure is a test which the code has explicitly failed
+       ;;                     by using the mechanisms for that purpose. e.g., via an assertEquals. optional -->
+       ;;   hostname=""  <!-- Host on which the tests were executed. 'localhost' should be used if the hostname cannot be determined. optional.
+       ;;                     not supported by maven surefire. -->
+       ;;   id=""        <!-- Starts at 0 for the first testsuite and is incremented by 1 for each following testsuite. optional. not supported by maven surefire. -->
+       ;;   package=""   <!-- Derived from testsuite/@name in the non-aggregated documents. optional. not supported by maven surefire. -->
+       ;;   skipped=""   <!-- The total number of skipped tests. optional -->
+       ;;   time=""      <!-- Time taken (in seconds) to execute the tests in the suite. optional -->
+       ;;   timestamp="" <!-- when the test was executed in ISO 8601 format (2014-01-21T16:17:18). Timezone may not be specified. optional.
+       ;;                     not supported by maven surefire. -->
+       ;;   >
+	   (:testsuite
+	    :id        (prin1-to-string (incf *suite-id*))
+	    :name      *suite-name*
+        :package   (getf suite :package)
+        :tests     (prin1-to-string (getf suite :tests    0))
+        :disabled  (prin1-to-string (getf suite :disabled 0))
+        :errors    (prin1-to-string (getf suite :errors   0))
+        :failures  (prin1-to-string (getf suite :failures 0))
+        :skipped   (prin1-to-string (getf suite :skipped  0))
+        :time      (prin1-to-string (getf suite :time     0))
+        :timestamp (getf suite :timestamp)
+        :hostname  (getf suite :hostname "localhost")
 
-      (unless *junit-no-properties*
-        ;; <!-- Properties (e.g., environment settings) set during test execution.
-        ;;      The properties element can appear 0 or once. -->
-        ;; <properties>
-        ;;   <!-- property can appear multiple times. The name and value attributres are required. -->
-        ;;   <property name="" value=""/>
-        ;; </properties>
-        (cl-who:htm
-         (:properties
-          (:property :name "LISP-IMPLEMENTATION-TYPE"    :value (cl-who:escape-string (lisp-implementation-type)))
-          (:property :name "LISP-IMPLEMENTATION-VERSION" :value (cl-who:escape-string (lisp-implementation-version)))
-          (:property :name "SOFTWARE-TYPE"               :value (cl-who:escape-string (software-type)))
-          (:property :name "SOFTWARE-VERSION"            :value (cl-who:escape-string (software-version)))
-          (:property :name "MACHINE-INSTANCE"            :value (cl-who:escape-string (machine-instance)))
-          (:property :name "MACHINE-TYPE"                :value (cl-who:escape-string (machine-type)))
-          (:property :name "MACHINE-VERSION"             :value (cl-who:escape-string (machine-version)))
-          (:property :name "*FEATURES*"                  :value (cl-who:escape-string (prin1-to-string *features*))))))
+        (unless *junit-no-properties*
+          ;; <!-- Properties (e.g., environment settings) set during test execution.
+          ;;      The properties element can appear 0 or once. -->
+          ;; <properties>
+          ;;   <!-- property can appear multiple times. The name and value attributres are required. -->
+          ;;   <property name="" value=""/>
+          ;; </properties>
+          (cl-who:htm
+           (:properties
+            (:property :name "LISP-IMPLEMENTATION-TYPE"    :value (cl-who:escape-string (lisp-implementation-type)))
+            (:property :name "LISP-IMPLEMENTATION-VERSION" :value (cl-who:escape-string (lisp-implementation-version)))
+            (:property :name "SOFTWARE-TYPE"               :value (cl-who:escape-string (software-type)))
+            (:property :name "SOFTWARE-VERSION"            :value (cl-who:escape-string (software-version)))
+            (:property :name "MACHINE-INSTANCE"            :value (cl-who:escape-string (machine-instance)))
+            (:property :name "MACHINE-TYPE"                :value (cl-who:escape-string (machine-type)))
+            (:property :name "MACHINE-VERSION"             :value (cl-who:escape-string (machine-version)))
+            (:property :name "*FEATURES*"                  :value (cl-who:escape-string (prin1-to-string *features*))))))
 
-      (dolist (testcase (getf suite :testcases))
-        (write-string (junit-format-testcase testcase)))))))
+        (dolist (testcase (getf suite :testcases))
+          (write-string (junit-format-testcase testcase))))))))
 
 (defun junit-format-testsuites (suites)
   (cl-who:with-html-output-to-string (*standard-output* nil :indent nil)

@@ -155,7 +155,7 @@
 
     (testcase :format-junit
               :equal 'string=
-		      :expected "<?xml version=\"1.0\" encoding=\"UTF-8\" ?><testsuites id='tested_suites' name='tested_suites' disabled='0' error='0' failures='0' tests='2' time='0'><testsuite id='0' name='tested_testsuite' package='CL-NAIVE-TESTS.TESTS' tests='2' disabled='0' errors='0' failures='0' skipped='0' time='0' hostname='localhost'><testcase id='EISH' name='EISH' assertions='0' classname='' status='SUCCESSFUL' time='0'><system-out></system-out><system-err></system-err></testcase><testcase id='HSIE' name='HSIE' assertions='0' classname='' status='SUCCESSFUL' time='0'><system-out></system-out><system-err></system-err></testcase></testsuite></testsuites>"
+		      :expected "<?xml version=\"1.0\" encoding=\"UTF-8\" ?><testsuites id='tested_suites' name='tested_suites' disabled='0' error='0' failures='0' tests='2' time='0'><testsuite id='0' name='tested_testsuite' package='CL-NAIVE-TESTS.TESTS' tests='2' disabled='0' errors='0' failures='0' skipped='0' time='0' hostname='localhost'><testcase name='tested_testsuite.EISH' assertions='0' classname='' status='SUCCESSFUL' time='0'><system-out></system-out><system-err></system-err></testcase><testcase name='tested_testsuite.HSIE' assertions='0' classname='' status='SUCCESSFUL' time='0'><system-out></system-out><system-err></system-err></testcase></testsuite></testsuites>"
 			  :actual (with-standard-io-syntax
                          (let ((cl-naive-tests:*junit-no-properties* t))
                            (format-results :junit (plist-tree-without-wildcards suites-results *result-wildcards*))))
