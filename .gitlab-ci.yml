@@ -4,17 +4,7 @@ stages:
   - test
 
 before_script:
-  - : before running this, gitlab-ci has started the docker and
-  - : eval "$CI_PRE_CLONE_SCRIPT" and
-  - : gotten the sources (the right branch!) in /builds/Harag/cl-naive-tests/
-  - : # Checking out 29528332 as 0-scratch...
-  - : CI_PROJECT_DIR="/builds/Harag/cl-naive-tests"
-  - :            PWD="/builds/Harag/cl-naive-tests"
-  - : so we don't have anything to do! (but perhaps checking out dependencies).
-  - : pwd
-  - : export
-  - : cd ~/src
-  - : git clone https://gitlab-ci-token:$CI_JOB_TOKEN@gitlab.com/Harag/cl-naive-tests.git
+  - echo "Hi!"
 
 test:
   stage: test
