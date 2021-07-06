@@ -15,4 +15,4 @@ test:
     reports:
       junit: tests/artifacts/junit-results.xml
     paths:
-      tests/tests.lisp
+      ['tests/tests.lisp']
