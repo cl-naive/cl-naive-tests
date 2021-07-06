@@ -35,45 +35,49 @@ The IDENTIFIER is a symbol identifying the testsuite.
 The BODY is a list of lisp forms or TESTCASE forms.
 The results of the TESTCASE are collected as results of the TESTSUITE.
 "
-  `(setf (gethash ',identifier *test-suites*)
-         (lambda (testsuite)
-           (let ((*results*      '())
-                 (test-count     0)
-                 (disabled-count 0)
-                 (error-count    0)
-                 (failure-count  0)
-                 (skipped-count  0)
-                 (package        nil)
-                 (start-time     (get-universal-time))
-                 (timestamp      (iso8601-time-stamp)))
-             (if *debug*
-                 (handler-bind ((error (function invoke-debugger)))
+  (let ((fname (gensym (string identifier))))
+    `(progn
+       (defun ,fname (testsuite)
+         (let ((*results*      '())
+               (test-count     0)
+               (disabled-count 0)
+               (error-count    0)
+               (failure-count  0)
+               (skipped-count  0)
+               (package        nil)
+               (start-time     (get-universal-time))
+               (timestamp      (iso8601-time-stamp)))
+           (if *debug*
+               (handler-bind ((error (function invoke-debugger)))
+                 (block ,identifier
+                   ,@body))
+               (handler-case
                    (block ,identifier
-                     ,@body))
-                 (handler-case
-                     (block ,identifier
-                       ,@body)
-                   (error (err)
-                     (incf error-count)
-                     (push (list :identifier ',identifier
-	                             :info       "Testsuite failure."
-                                 :expression ',identifier
-                                 :actual     err
-	                             :result     nil
-                                 :error      err
-                                 :failure-type :error)
-                           *results*))))
-             (list :identifier ',identifier
-                   :tests     test-count
-                   :errors    error-count
-                   :failures  failure-count
-                   :disabled  disabled-count
-                   :skipped   skipped-count
-                   :hostname  (machine-instance)
-                   :package   (or package (unfuck-sbcl-base-string (package-name *package*)))
-                   :time      (- (get-universal-time) start-time)
-                   :timestamp timestamp
-                   :testcases (nreverse *results*))))))
+                     ,@body)
+                 (error (err)
+                   (incf error-count)
+                   (push (list :identifier ',identifier
+	                           :info       "Testsuite failure."
+                               :expression ',identifier
+                               :actual     err
+	                           :result     nil
+                               :error      err
+                               :failure-type :error)
+                         *results*))))
+           (list :identifier ',identifier
+                 :tests     test-count
+                 :errors    error-count
+                 :failures  failure-count
+                 :disabled  disabled-count
+                 :skipped   skipped-count
+                 :hostname  (machine-instance)
+                 :package   (or package (unfuck-sbcl-base-string (package-name *package*)))
+                 :time      (- (get-universal-time) start-time)
+                 :timestamp timestamp
+                 :testcases (nreverse *results*))))
+       (eval-when (:load-toplevel :execute)
+         (setf (gethash ',identifier *test-suites*) (function ,fname)))
+       ',identifier)))
 
 
 (define-condition disable-testcase (condition)
