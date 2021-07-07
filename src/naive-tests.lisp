@@ -33,6 +33,13 @@
      (format nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0DZ"
              ye mo da ho mi se))))
 
+(defvar *test-count*)
+(defvar *disabled-count*)
+(defvar *error-count*)
+(defvar *failure-count*)
+(defvar *skipped-count*)
+(defvar *test-package*)
+
 (defmacro testsuite (identifier &body body)
   "Defines a TESTSUITE.
 The IDENTIFIER is a symbol identifying the testsuite.
@@ -43,14 +50,13 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
     `(progn
        (defun ,fname (*testsuite-name*)
          (let ((*suite-results*      '())
-               (test-count     0)
-               (disabled-count 0)
-               (error-count    0)
-               (failure-count  0)
-               (skipped-count  0)
-               (package        nil)
-               (start-time     (get-universal-time))
-               (timestamp      (iso8601-time-stamp)))
+               (*test-count*   0)
+               (*disabled-count* 0)
+               (*error-count*    0)
+               (*failure-count*  0)
+               (*skipped-count*  0)
+               (*test-package*   nil)
+               (start-time     (get-universal-time)))
            (if *debug*
                (handler-bind ((error (function invoke-debugger)))
                  (block ,identifier
@@ -59,25 +65,25 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
                    (block ,identifier
                      ,@body)
                  (error (err)
-                   (incf error-count)
+                   (incf *error-count*)
                    (push (list :identifier ',identifier
-	                           :info       "Testsuite failure."
+	                       :info       "Testsuite failure."
                                :expression ',identifier
                                :actual     err
-	                           :result     nil
+	                       :result     nil
                                :error      err
                                :failure-type :error)
                          *suite-results*))))
            (list :identifier ',identifier
-                 :tests     test-count
-                 :errors    error-count
-                 :failures  failure-count
-                 :disabled  disabled-count
-                 :skipped   skipped-count
+                 :tests     *test-count*
+                 :errors    *error-count*
+                 :failures  *failure-count*
+                 :disabled  *disabled-count*
+                 :skipped   *skipped-count*
                  :hostname  (machine-instance)
-                 :package   (or package (readable-string (package-name *package*)))
+                 :package   (or *test-package* (readable-string (package-name *package*)))
                  :time      (- (get-universal-time) start-time)
-                 :timestamp timestamp
+                 :timestamp (iso8601-time-stamp start-time)
                  :testcases (nreverse *suite-results*))))
        (eval-when (:load-toplevel :execute)
          (setf (gethash ',identifier *test-suites*) (function ,fname)))
@@ -113,6 +119,87 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
       (if ci-project-dir
           (enough-namestring namestring (format nil "~A/" ci-project-dir))
           namestring))))
+
+(defun %testcase (identifier disabled test-func test-data equal expected actual expression info package)
+  (let (error
+        sysout
+        syserr
+        result)
+    (setf *test-package* (readable-string (package-name package)))
+    (incf *test-count*)
+    (let* ((result (if disabled
+                       (setf error :disabled)
+                       (handler-case
+                           (progn
+                             (setf sysout
+                                   (with-output-to-string (*standard-output*)
+                                     (setf syserr
+                                           (with-output-to-string (*error-output*)
+                                             (let ((*trace-output* *error-output*))
+                                               (let ((filename  (prepare-filename (load-time-value *load-truename*))))
+                                                 (format t "[[ATTACHMENT|~A]]~%" filename))
+                                               (setf result (funcall actual)))))))
+                             result)
+                         (:no-error (result)
+                           result)
+                         (disable-testcase ()
+                           (setf error :disabled))
+                         (skip-testcase (condition)
+                           (setf result (skip-testcase-reason condition)
+                                 error :skipped))
+                         (error (err)
+                           (setf error t)
+                           err))))
+           (*testcase-results* (list :identifier   identifier
+	                             :info         info
+                                     :equal        equal
+                                     :test-func    test-func
+                                     :test-data    test-data
+	                             :expected     expected
+                                     :expression   expression
+                                     :actual       result
+                                     :failure-type (case error
+                                                     ((:disabled) :disabled)
+                                                     ((:skipped)  :skipped)
+                                                     ((t)         :error)
+                                                     (otherwise   nil))
+                                     :error        (if (eql t error)
+                                                       result
+                                                       nil)
+                                     :sysout       sysout
+                                     :syserr       syserr))
+           (test-result (or (getf *testcase-results* :failure-type)
+                            (let ((test-result
+                                    (handler-case
+                                        (cond
+                                          (test-func (funcall test-func *testcase-results* info))
+                                          (error     nil)
+                                          (equal     (not (not (funcall equal expected result))))
+			                  (t           (not (not (equal expected result)))))
+                                      (disable-testcase ()
+                                        (setf error :disabled)
+                                        :disabled)
+                                      (skip-testcase (condition)
+                                        (setf result (skip-testcase-reason condition)
+                                              error :skipped)
+                                        :skipped)
+                                      (error (err)
+                                        (setf result err
+                                              error :error)))))
+                              (cond
+                                (error               :error)
+                                ((null test-result)  :failure)
+                                ((eql test-result t) :success)
+                                (t                     test-result))))))
+      (case test-result
+        ((:error)    (incf *error-count*)   (setf (getf *testcase-results* :error)  result))
+        ((:failure)  (incf *failure-count*))
+        ((:skipped)  (incf *skipped-count*) (setf (getf *testcase-results* :reason) result))
+        ((:disabled) (incf *disabled-count*)))
+      (setf (getf *testcase-results* :result)       test-result
+            (getf *testcase-results* :failure-type) test-result)
+      (push *testcase-results* *suite-results*)
+      test-result)))
 
 (defmacro testcase (identifier &key disabled test-func test-data (equal ''equal) expected actual info)
   ;; Better to use a function name than a function for equal, because it's used in reports.
@@ -183,110 +270,9 @@ EXAMPLE:
                     (error (err) err))
           :info \"Integer division by zero, giving a DIVISION-BY-ZERO error.\")
 "
-  (let ((videntifier  (gensym))
-        (vdisabled    (gensym))
-        (vinfo        (gensym))
-        (vtest-func   (gensym))
-        (vtest-data   (gensym))
-        (vequal       (gensym))
-        (vexpected    (gensym))
-        (vexpression  (gensym))
-        (vresult      (gensym))
-        (vtest-result (gensym))
-        (verror       (gensym))
-        (vsysout      (gensym))
-        (vsyserr      (gensym)))
-    `(let ((,videntifier ',identifier)
-           (,vdisabled   ,disabled)
-           (,vinfo       ,info)
-           (,vtest-func  ,test-func)
-           (,vtest-data  ,test-data)
-           (,vequal      ,equal)
-           (,vexpected   ,expected)
-           (,vexpression ',actual)
-           (,verror      nil)
-           (,vsysout     nil)
-           (,vsyserr     nil)
-           (,vresult     nil))
-       (incf test-count)
-       (setf package ',(readable-string (package-name *package*)))
-       (let* ((,vresult      (if ,vdisabled
-                                 (progn
-                                   (setf ,verror :disabled)
-                                   :disabled)
-                                 (handler-case
-                                     (progn
-                                       (setf ,vsysout
-                                             (with-output-to-string (*standard-output*)
-                                               (setf ,vsyserr
-                                                     (with-output-to-string (*error-output*)
-                                                       (let ((*trace-output* *error-output*))
-                                                         (let ((filename  (prepare-filename (load-time-value *load-truename*))))
-                                                           (format t "[[ATTACHMENT|~A]]~%" filename))
-                                                         (setf ,vresult (progn ,actual)))))))
-                                       ,vresult)
-                                   (:no-error (result)
-                                     result)
-                                   (disable-testcase ()
-                                     (setf ,verror :disabled)
-                                     :disabled)
-                                   (skip-testcase (condition)
-                                     (setf ,vresult (skip-testcase-reason condition)
-                                           ,verror :skipped)
-                                     :skipped)
-                                   (error (err)
-                                     (setf ,verror t)
-                                     err))))
-              (*testcase-results* (list :identifier   ,videntifier
-	                                    :info         ,vinfo
-                                        :equal        ,vequal
-                                        :test-func    ,vtest-func
-                                        :test-data    ,vtest-data
-	                                    :expected     ,vexpected
-                                        :expression   ,vexpression
-                                        :actual       ,vresult
-                                        :failure-type (case ,verror
-                                                        ((:disabled) :disabled)
-                                                        ((:skipped)  :skipped)
-                                                        ((t)         :error)
-                                                        (otherwise   nil))
-                                        :error        (if (eql 't ,verror)
-                                                          ,vresult
-                                                          nil)
-                                        :sysout       ,vsysout
-                                        :syserr       ,vsyserr))
-              (,vtest-result (or (getf *testcase-results* :failure-type)
-                                 (let ((,vtest-result
-                                         (handler-case
-                                             (cond
-                                               (,vtest-func (funcall ,vtest-func *testcase-results* ,vinfo))
-                                               (,verror     nil)
-                                               (,vequal     (not (not (funcall ,vequal ,vexpected ,vresult))))
-			                                   (t           (not (not (equal ,vexpected ,vresult)))))
-                                           (disable-testcase ()
-                                             (setf ,verror :disabled)
-                                             :disabled)
-                                           (skip-testcase (condition)
-                                             (setf ,vresult (skip-testcase-reason condition)
-                                                   ,verror :skipped)
-                                             :skipped)
-                                           (error (err)
-                                             (setf ,vresult err
-                                                   ,verror :error)))))
-                                   (cond
-                                     (,verror               :error)
-                                     ((null ,vtest-result)  :failure)
-                                     ((eql ,vtest-result t) :success)
-                                     (t                     ,vtest-result))))))
-         (case ,vtest-result
-           ((:error)    (incf error-count)   (setf (getf *testcase-results* :error)  ,vresult))
-           ((:failure)  (incf failure-count))
-           ((:skipped)  (incf skipped-count) (setf (getf *testcase-results* :reason) ,vresult))
-           ((:disabled) (incf disabled-count)))
-	     (setf (getf *testcase-results* :result)       ,vtest-result
-               (getf *testcase-results* :failure-type) ,vtest-result)
-         (push *testcase-results* *suite-results*)
-         ,vtest-result))))
+  `(%testcase ',identifier ',disabled
+              ,test-func
+              ,test-data ,equal ,expected (lambda () ,actual) ',actual ,info ,*package*))
 
 
 
@@ -511,10 +497,10 @@ Statistics can be calculated during a test run, but the default is to use statis
         (case (getf testcase :failure-type)
           ((:success))
           ((:disabled))
-          ((:skipped))
-          (cl-who:htm
-		   (:skipped
-            :message (cl-who:escape-string (getf testcase :reason))))
+          ((:skipped)
+           (cl-who:htm
+	    (:skipped
+             :message (cl-who:escape-string (getf testcase :reason)))))
           ((:error)
            ;; <error message="" <!-- The error message. e.g., if a java exception is thrown, the return value of getMessage() -->
            ;;        type=""    <!-- The type of error that occured. e.g., if a java execption is thrown the full class name of the exception. -->
