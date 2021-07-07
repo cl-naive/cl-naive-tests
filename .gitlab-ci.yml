@@ -4,14 +4,16 @@ stages:
   - test
 
 before_script:
-  - cd ~/src
-  - git clone -b "$CI_COMMIT_BRANCH" https://gitlab-ci-token:$CI_JOB_TOKEN@gitlab.com/Harag/cl-naive-tests.git
+  - echo "Hi!"
 
 test:
   stage: test
   script:
-     - make -C cl-naive-tests test DEPENDENCYDIR=~/src ARTDIR=$CI_PROJECT_DIR/
+      - make test "DEPENDENCYDIR=${CI_PROJECT_DIR}/../"
 
   artifacts:
+    paths:
+      - tests/tests.lisp
     reports:
-      junit: junit-results.xml
+      junit: tests/artifacts/junit-results.xml
+

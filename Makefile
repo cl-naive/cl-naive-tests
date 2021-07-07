@@ -12,7 +12,7 @@ test tests:
 		--eval '(ql:quickload :cl-naive-tests.tests)' \
 		--eval '(defparameter cl-naive-tests.tests::*disable-failure-tests* t)' \
 		--eval '(cl-naive-tests:run)' \
-		--eval '(cl-naive-tests:run)' \
+		--eval '(cl-naive-tests:run :name "testsuites-with-sbcl")' \
 		--eval '(cl-naive-tests:write-results cl-naive-tests:*suites-results* :format :text)' \
 		--eval '(cl-naive-tests:save-results cl-naive-tests:*suites-results* :file "$(ARTDIR)junit-results.xml" :format :junit)' \
 		--eval '(sb-ext:exit :code (if (cl-naive-tests:report) 0 200))'
