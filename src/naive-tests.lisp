@@ -24,14 +24,12 @@
 (defvar *junit-no-properties* nil)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun unfuck-sbcl-base-string (fucked-sbcl-base-string)
-    (make-array (length fucked-sbcl-base-string)
-                :initial-contents fucked-sbcl-base-string
-                :element-type 'character)))
+  (defun readable-string (string)
+    (coerce string '(simple-array character (*)))))
 
 (defun iso8601-time-stamp (&optional (time (get-universal-time)))
   (multiple-value-bind (se mi ho da mo ye) (decode-universal-time time 0)
-    (unfuck-sbcl-base-string
+    (readable-string
      (format nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0DZ"
              ye mo da ho mi se))))
 
@@ -77,7 +75,7 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
                  :disabled  disabled-count
                  :skipped   skipped-count
                  :hostname  (machine-instance)
-                 :package   (or package (unfuck-sbcl-base-string (package-name *package*)))
+                 :package   (or package (readable-string (package-name *package*)))
                  :time      (- (get-universal-time) start-time)
                  :timestamp timestamp
                  :testcases (nreverse *suite-results*))))
@@ -211,7 +209,7 @@ EXAMPLE:
            (,vsyserr     nil)
            (,vresult     nil))
        (incf test-count)
-       (setf package ',(unfuck-sbcl-base-string (package-name *package*)))
+       (setf package ',(readable-string (package-name *package*)))
        (let* ((,vresult      (if ,vdisabled
                                  (progn
                                    (setf ,verror :disabled)
