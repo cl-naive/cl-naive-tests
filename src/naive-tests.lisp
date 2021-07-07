@@ -9,6 +9,12 @@
 (defvar *suite-results* nil
   "The results of the last testsuite ran.")
 
+(defvar *testsuite-name* nil
+  "The current testsuite name.")
+
+(defvar *testcase-results* nil
+  "The current testcase results (plist).")
+
 (defvar *debug* nil
   "Set to true to break into the debugger on errors.")
 
@@ -37,8 +43,8 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
 "
   (let ((fname (gensym (string identifier))))
     `(progn
-       (defun ,fname (testsuite)
-         (let ((*results*      '())
+       (defun ,fname (*testsuite-name*)
+         (let ((*suite-results*      '())
                (test-count     0)
                (disabled-count 0)
                (error-count    0)
@@ -63,7 +69,7 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
 	                           :result     nil
                                :error      err
                                :failure-type :error)
-                         *results*))))
+                         *suite-results*))))
            (list :identifier ',identifier
                  :tests     test-count
                  :errors    error-count
@@ -74,7 +80,7 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
                  :package   (or package (unfuck-sbcl-base-string (package-name *package*)))
                  :time      (- (get-universal-time) start-time)
                  :timestamp timestamp
-                 :testcases (nreverse *results*))))
+                 :testcases (nreverse *suite-results*))))
        (eval-when (:load-toplevel :execute)
          (setf (gethash ',identifier *test-suites*) (function ,fname)))
        ',identifier)))
@@ -233,29 +239,29 @@ EXAMPLE:
                                    (error (err)
                                      (setf ,verror t)
                                      err))))
-              (*testcase* (list :identifier   ,videntifier
-	                            :info         ,vinfo
-                                :equal        ,vequal
-                                :test-func    ,vtest-func
-                                :test-data    ,vtest-data
-	                            :expected     ,vexpected
-                                :expression   ,vexpression
-                                :actual       ,vresult
-                                :failure-type (case ,verror
-                                                ((:disabled) :disabled)
-                                                ((:skipped)  :skipped)
-                                                ((t)         :error)
-                                                (otherwise   nil))
-                                :error        (if (eql 't ,verror)
-                                                  ,vresult
-                                                  nil)
-                                :sysout       ,vsysout
-                                :syserr       ,vsyserr))
-              (,vtest-result (or (getf *testcase* :failure-type)
+              (*testcase-results* (list :identifier   ,videntifier
+	                                    :info         ,vinfo
+                                        :equal        ,vequal
+                                        :test-func    ,vtest-func
+                                        :test-data    ,vtest-data
+	                                    :expected     ,vexpected
+                                        :expression   ,vexpression
+                                        :actual       ,vresult
+                                        :failure-type (case ,verror
+                                                        ((:disabled) :disabled)
+                                                        ((:skipped)  :skipped)
+                                                        ((t)         :error)
+                                                        (otherwise   nil))
+                                        :error        (if (eql 't ,verror)
+                                                          ,vresult
+                                                          nil)
+                                        :sysout       ,vsysout
+                                        :syserr       ,vsyserr))
+              (,vtest-result (or (getf *testcase-results* :failure-type)
                                  (let ((,vtest-result
                                          (handler-case
                                              (cond
-                                               (,vtest-func (funcall ,vtest-func *testcase* ,vinfo))
+                                               (,vtest-func (funcall ,vtest-func *testcase-results* ,vinfo))
                                                (,verror     nil)
                                                (,vequal     (not (not (funcall ,vequal ,vexpected ,vresult))))
 			                                   (t           (not (not (equal ,vexpected ,vresult)))))
@@ -275,13 +281,13 @@ EXAMPLE:
                                      ((eql ,vtest-result t) :success)
                                      (t                     ,vtest-result))))))
          (case ,vtest-result
-           ((:error)    (incf error-count)   (setf (getf *testcase* :error)  ,vresult))
+           ((:error)    (incf error-count)   (setf (getf *testcase-results* :error)  ,vresult))
            ((:failure)  (incf failure-count))
-           ((:skipped)  (incf skipped-count) (setf (getf *testcase* :reason) ,vresult))
+           ((:skipped)  (incf skipped-count) (setf (getf *testcase-results* :reason) ,vresult))
            ((:disabled) (incf disabled-count)))
-	     (setf (getf *testcase* :result)       ,vtest-result
-               (getf *testcase* :failure-type) ,vtest-result)
-         (push *testcase* *results*)
+	     (setf (getf *testcase-results* :result)       ,vtest-result
+               (getf *testcase-results* :failure-type) ,vtest-result)
+         (push *testcase-results* *suite-results*)
          ,vtest-result))))
 
 
