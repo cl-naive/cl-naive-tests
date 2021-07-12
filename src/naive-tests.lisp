@@ -412,7 +412,7 @@ Statistics can be calculated during a test run, but the default is to use statis
              (getf testcase :identifier)
              (getf testcase :failure-type))))
   (when verbose
-	(format t "Data:~32T~S~%Info:~32T~S~%"
+	(format t "~@[Data:~32T~S~%~]~@[Info:~32T~S~%~]"
 			(getf testcase :test-data)
 			(getf testcase :info)))
   (finish-output))

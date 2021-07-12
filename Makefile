@@ -19,3 +19,7 @@ test tests:
 documentation:
 	make -C docs pdfs
 
+clean:
+	-rm *~ system-index.txt
+	-find . -name \*.[dlw]x[36][24]fsl -exec rm {} +
+	make -C docs clean
