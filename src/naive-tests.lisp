@@ -378,6 +378,13 @@ Statistics can be calculated during a test run, but the default is to use statis
 ;;; TEXT format
 ;;; ========================================
 
+(defun split-lines (text)
+  (loop
+    :for start := 0 :then (and end (1+ end))
+    :for end := (when start (position #\newline text :start start))
+    :while start
+    :collect (subseq text start end)))
+
 (defun print-testcase-result (testcase &key (verbose *verbose*)
                                          ((:output *standard-output*) *standard-output*))
   (case (getf testcase :failure-type)
@@ -412,9 +419,12 @@ Statistics can be calculated during a test run, but the default is to use statis
              (getf testcase :identifier)
              (getf testcase :failure-type))))
   (when verbose
-	(format t "~@[Data:~32T~S~%~]~@[Info:~32T~S~%~]"
-			(getf testcase :test-data)
-			(getf testcase :info)))
+    (format t "~@[Data:~32T~S~%~]~@[Info:~32T~S~%~]"
+	    (getf testcase :test-data)
+	    (getf testcase :info))
+    (format t "~@[Sysout:~%~{    ~A~%~}~]~@[Syserr:~%~{    ~A~%~}~]"
+	    (split-lines (getf testcase :sysout))
+	    (split-lines (getf testcase :syserr))))
   (finish-output))
 
 (defun print-testsuites-results (suites &key (verbose *verbose*)
