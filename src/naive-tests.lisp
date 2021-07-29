@@ -285,6 +285,7 @@ EXAMPLE:
 The default method just outputs the results using lisp format string."))
 
 (defmethod format-results (format suites-results)
+  (declare (ignorable format))
   (format nil "~S" suites-results))
 
 (defun write-results (suites-results &key (stream *standard-output*) format)
