@@ -120,37 +120,77 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
           (enough-namestring namestring (format nil "~A/" ci-project-dir))
           namestring))))
 
+(defmacro with-test-error-handler ((result error &key on-error) &body body)
+  (let ((value (gensym)))
+    `(call-with-test-error-handler (lambda () ,@body)
+                                   (lambda (,value) (setf ,result ,value))
+                                   (lambda (,value) (setf ,error  ,value))
+                                   ,on-error)))
+
+(defun call-with-test-error-handler (doit set-result set-error on-error)
+  (if *debug*
+      ;; debug:
+      (handler-bind
+          ((disable-testcase
+             (lambda (condition)
+               (declare (ignore condition))
+               (return-from call-with-test-error-handler
+                 (funcall set-error :disabled))))
+           (skip-testcase
+             (lambda (condition)
+               (funcall set-result (skip-testcase-reason condition))
+               (return-from call-with-test-error-handler
+                 (funcall set-error :skipped))))
+           (error
+             (lambda (err)
+               (with-simple-restart (continue "Report the error and continue testing")
+                 (invoke-debugger err))
+               (return-from call-with-test-error-handler
+                 (if on-error
+                     (progn (funcall set-error t)
+                            (funcall set-result :error))
+                     (progn (funcall set-error err)
+                            (funcall set-result err)))))))
+        (funcall doit))
+      ;; not debug:
+      (handler-case
+          (funcall doit)
+        (:no-error (result)
+          result)
+        (disable-testcase ()
+          (funcall set-error :disabled))
+        (skip-testcase (condition)
+          (funcall set-result (skip-testcase-reason condition))
+          (funcall set-error :skipped))
+        (error (err)
+          (if on-error
+              (progn (funcall set-error t)
+                     (funcall set-result :error))
+              (progn (funcall set-error err)
+                     (funcall set-result err)))))))
+
+
 (defun %testcase (identifier disabled test-func test-data equal expected actual expression info package)
-  (let (error
+  (let ((error nil)
         sysout
         syserr
         result)
     (setf *test-package* (readable-string (package-name package)))
     (incf *test-count*)
-    (let* ((result (if disabled
-                       (setf error :disabled)
-                       (handler-case
-                           (progn
-                             (setf sysout
-                                   (with-output-to-string (*standard-output*)
-                                     (setf syserr
-                                           (with-output-to-string (*error-output*)
-                                             (let ((*trace-output* *error-output*))
-                                               (let ((filename  (prepare-filename (load-time-value *load-truename*))))
-                                                 (format t "[[ATTACHMENT|~A]]~%" filename))
-                                               (setf result (funcall actual)))))))
-                             result)
-                         (:no-error (result)
-                           result)
-                         (disable-testcase ()
-                           (setf error :disabled))
-                         (skip-testcase (condition)
-                           (setf result (skip-testcase-reason condition)
-                                 error :skipped))
-                         (error (err)
-                           (setf error t)
-                           err))))
-           (*testcase-results* (list :identifier   identifier
+    (if disabled
+        (setf result (setf error :disabled))
+        (with-test-error-handler (result error)
+          (with-output-to-string (*standard-output*)
+            (unwind-protect
+                 (with-output-to-string (*error-output*)
+                   (unwind-protect
+                        (let ((*trace-output* *error-output*))
+                          (let ((filename  (prepare-filename (load-time-value *load-truename*))))
+                            (format t "[[ATTACHMENT|~A]]~%" filename))
+                          (setf result (funcall actual)))
+                     (setf syserr (get-output-stream-string *error-output*))))
+              (setf sysout (get-output-stream-string *standard-output*))))))
+    (let* ((*testcase-results* (list :identifier   identifier
 	                             :info         info
                                      :equal        equal
                                      :test-func    test-func
@@ -170,22 +210,12 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
                                      :syserr       syserr))
            (test-result (or (getf *testcase-results* :failure-type)
                             (let ((test-result
-                                    (handler-case
-                                        (cond
-                                          (test-func (funcall test-func *testcase-results* info))
-                                          (error     nil)
-                                          (equal     (not (not (funcall equal expected result))))
-			                  (t           (not (not (equal expected result)))))
-                                      (disable-testcase ()
-                                        (setf error :disabled)
-                                        :disabled)
-                                      (skip-testcase (condition)
-                                        (setf result (skip-testcase-reason condition)
-                                              error :skipped)
-                                        :skipped)
-                                      (error (err)
-                                        (setf result err
-                                              error :error)))))
+                                    (with-test-error-handler (result error :on-error :error)
+                                      (cond
+                                        (test-func (funcall test-func *testcase-results* info))
+                                        (error     nil)
+                                        (equal     (not (not (funcall equal expected result))))
+			                (t         (not (not (equal expected result))))))))
                               (cond
                                 (error               :error)
                                 ((null test-result)  :failure)
@@ -410,10 +440,10 @@ Statistics can be calculated during a test run, but the default is to use statis
     ((:error)
      (format t "Testcase ~A:~40T ERROR~%"   (getf testcase :identifier))
      (format t "Error:          The expression: ~S~@
-              ~&             signaled an error: ~A~@
+              ~&             signaled an error: ~S ~A~@
               ~&       the expected result was: ~S~%"
              (getf testcase :expression)
-             (getf testcase :error)
+             (type-of (getf testcase :error)) (getf testcase :error)
              (getf testcase :expected)))
     (otherwise
      (format t "Testcase ~A:~40T ~A~%"
