@@ -5,6 +5,7 @@
   (:export
    :*debug*
    :*verbose*
+   :*use-color*
    :*junit-no-properties*
    :*test-suites*
    :*suites-results*

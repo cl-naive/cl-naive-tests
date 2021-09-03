@@ -421,9 +421,13 @@ Statistics can be calculated during a test run, but the default is to use statis
   (case (getf testcase :failure-type)
     ((:success)
      (when verbose
-       (format t "Testcase ~A:~40T SUCCESS~%" (getf testcase :identifier))))
+       (format t "Testcase ~A:~40T ~A SUCCESS ~A~%" (getf testcase :identifier)
+               (success-color) (normal-color))))
     ((:failure)
-     (format t "Testcase ~A:~40T FAILURE~%" (getf testcase :identifier))
+     (format t "Testcase ~A:~40T ~A FAILURE ~A~%" (getf testcase :identifier)
+             (failure-color) (normal-color))
+     (when (and (not verbose) (getf testcase :info))
+       (format t "Info:                           ~S~%" (getf testcase :info)))
      (format t "Failure:        The expression: ~S~@
               ~&                  evaluates to: ~S~@
               ~&                  which is not  ~A~@
@@ -438,7 +442,10 @@ Statistics can be calculated during a test run, but the default is to use statis
                    (or (getf testcase :equal) 'equalp)))
              (getf testcase :expected)))
     ((:error)
-     (format t "Testcase ~A:~40T ERROR~%"   (getf testcase :identifier))
+     (format t "Testcase ~A:~40T ~A ERROR ~A~%"   (getf testcase :identifier)
+             (error-color) (normal-color))
+     (when (and (not verbose) (getf testcase :info))
+       (format t "Info:                           ~S~%" (getf testcase :info)))
      (format t "Error:          The expression: ~S~@
               ~&             signaled an error: ~S ~A~@
               ~&       the expected result was: ~S~%"

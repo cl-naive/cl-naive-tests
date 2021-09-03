@@ -5,5 +5,7 @@
   :licence "MIT"
   :depends-on (:cl-who)
   :components ((:file "src/package")
-	       (:file "src/naive-tests" :depends-on ("src/package"))))
+	       (:file "src/color"       :depends-on ("src/package"))
+	       (:file "src/naive-tests" :depends-on ("src/package"
+                                                     "src/color"))))
 
