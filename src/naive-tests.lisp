@@ -49,42 +49,45 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
   (let ((fname (gensym (string identifier))))
     `(progn
        (defun ,fname (*testsuite-name*)
-         (let ((*suite-results*      '())
-               (*test-count*   0)
-               (*disabled-count* 0)
-               (*error-count*    0)
-               (*failure-count*  0)
-               (*skipped-count*  0)
-               (*test-package*   nil)
-               (start-time     (get-universal-time)))
-           (if *debug*
-               (handler-bind ((error (function invoke-debugger)))
-                 (block ,identifier
-                   ,@body))
-               (handler-case
-                   (block ,identifier
-                     ,@body)
-                 (error (err)
-                   (incf *error-count*)
-                   (push (list :identifier ',identifier
-	                       :info       "Testsuite failure."
-                               :expression ',identifier
-                               :actual     err
-	                       :result     nil
-                               :error      err
-                               :failure-type :error)
-                         *suite-results*))))
-           (list :identifier ',identifier
-                 :tests     *test-count*
-                 :errors    *error-count*
-                 :failures  *failure-count*
-                 :disabled  *disabled-count*
-                 :skipped   *skipped-count*
-                 :hostname  (machine-instance)
-                 :package   (or *test-package* (readable-string (package-name *package*)))
-                 :time      (- (get-universal-time) start-time)
-                 :timestamp (iso8601-time-stamp start-time)
-                 :testcases (nreverse *suite-results*))))
+         (when (eql :trace *verbose*) (format *trace-output* "Begin ~A~%" ',identifier))
+         (unwind-protect
+              (let ((*suite-results*      '())
+                    (*test-count*   0)
+                    (*disabled-count* 0)
+                    (*error-count*    0)
+                    (*failure-count*  0)
+                    (*skipped-count*  0)
+                    (*test-package*   nil)
+                    (start-time     (get-universal-time)))
+                (if *debug*
+                    (handler-bind ((error (function invoke-debugger)))
+                      (block ,identifier
+                        ,@body))
+                    (handler-case
+                        (block ,identifier
+                          ,@body)
+                      (error (err)
+                        (incf *error-count*)
+                        (push (list :identifier ',identifier
+	                            :info       "Testsuite failure."
+                                    :expression ',identifier
+                                    :actual     err
+	                            :result     nil
+                                    :error      err
+                                    :failure-type :error)
+                              *suite-results*))))
+                (list :identifier ',identifier
+                      :tests     *test-count*
+                      :errors    *error-count*
+                      :failures  *failure-count*
+                      :disabled  *disabled-count*
+                      :skipped   *skipped-count*
+                      :hostname  (machine-instance)
+                      :package   (or *test-package* (readable-string (package-name *package*)))
+                      :time      (- (get-universal-time) start-time)
+                      :timestamp (iso8601-time-stamp start-time)
+                      :testcases (nreverse *suite-results*)))
+           (when (eql :trace *verbose*) (format *trace-output* "End ~A~%" ',identifier))))
        (eval-when (:load-toplevel :execute)
          (setf (gethash ',identifier *test-suites*) (function ,fname)))
        ',identifier)))
@@ -171,65 +174,68 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
 
 
 (defun %testcase (identifier disabled test-func test-data equal expected actual expression info package)
-  (let ((error nil)
-        sysout
-        syserr
-        result)
-    (setf *test-package* (readable-string (package-name package)))
-    (incf *test-count*)
-    (if disabled
-        (setf result (setf error :disabled))
-        (with-test-error-handler (result error)
-          (with-output-to-string (*standard-output*)
-            (unwind-protect
-                 (with-output-to-string (*error-output*)
-                   (unwind-protect
-                        (let ((*trace-output* *error-output*))
-                          (let ((filename  (prepare-filename (load-time-value *load-truename*))))
-                            (format t "[[ATTACHMENT|~A]]~%" filename))
-                          (setf result (funcall actual)))
-                     (setf syserr (get-output-stream-string *error-output*))))
-              (setf sysout (get-output-stream-string *standard-output*))))))
-    (let* ((*testcase-results* (list :identifier   identifier
-	                             :info         info
-                                     :equal        equal
-                                     :test-func    test-func
-                                     :test-data    test-data
-	                             :expected     expected
-                                     :expression   expression
-                                     :actual       result
-                                     :failure-type (case error
-                                                     ((:disabled) :disabled)
-                                                     ((:skipped)  :skipped)
-                                                     ((t)         :error)
-                                                     (otherwise   nil))
-                                     :error        (if (eql t error)
-                                                       result
-                                                       nil)
-                                     :sysout       sysout
-                                     :syserr       syserr))
-           (test-result (or (getf *testcase-results* :failure-type)
-                            (let ((test-result
-                                    (with-test-error-handler (result error :on-error :error)
-                                      (cond
-                                        (test-func (funcall test-func *testcase-results* info))
-                                        (error     nil)
-                                        (equal     (not (not (funcall equal expected result))))
-			                (t         (not (not (equal expected result))))))))
-                              (cond
-                                (error               :error)
-                                ((null test-result)  :failure)
-                                ((eql test-result t) :success)
-                                (t                     test-result))))))
-      (case test-result
-        ((:error)    (incf *error-count*)   (setf (getf *testcase-results* :error)  result))
-        ((:failure)  (incf *failure-count*))
-        ((:skipped)  (incf *skipped-count*) (setf (getf *testcase-results* :reason) result))
-        ((:disabled) (incf *disabled-count*)))
-      (setf (getf *testcase-results* :result)       test-result
-            (getf *testcase-results* :failure-type) test-result)
-      (push *testcase-results* *suite-results*)
-      test-result)))
+  (when (eql :trace *verbose*) (format *trace-output* "  Begin ~A~%" identifier))
+  (unwind-protect
+       (let ((error nil)
+             sysout
+             syserr
+             result)
+         (setf *test-package* (readable-string (package-name package)))
+         (incf *test-count*)
+         (if disabled
+             (setf result (setf error :disabled))
+             (with-test-error-handler (result error)
+               (with-output-to-string (*standard-output*)
+                 (unwind-protect
+                      (with-output-to-string (*error-output*)
+                        (unwind-protect
+                             (progn ; let ((*trace-output* *error-output*))
+                               (let ((filename  (prepare-filename (load-time-value *load-truename*))))
+                                 (format t "[[ATTACHMENT|~A]]~%" filename))
+                               (setf result (funcall actual)))
+                          (setf syserr (get-output-stream-string *error-output*))))
+                   (setf sysout (get-output-stream-string *standard-output*))))))
+         (let* ((*testcase-results* (list :identifier   identifier
+	                                  :info         info
+                                          :equal        equal
+                                          :test-func    test-func
+                                          :test-data    test-data
+	                                  :expected     expected
+                                          :expression   expression
+                                          :actual       result
+                                          :failure-type (case error
+                                                          ((:disabled) :disabled)
+                                                          ((:skipped)  :skipped)
+                                                          ((t)         :error)
+                                                          (otherwise   nil))
+                                          :error        (if (eql t error)
+                                                            result
+                                                            nil)
+                                          :sysout       sysout
+                                          :syserr       syserr))
+                (test-result (or (getf *testcase-results* :failure-type)
+                                 (let ((test-result
+                                         (with-test-error-handler (result error :on-error :error)
+                                           (cond
+                                             (test-func (funcall test-func *testcase-results* info))
+                                             (error     nil)
+                                             (equal     (not (not (funcall equal expected result))))
+			                     (t         (not (not (equal expected result))))))))
+                                   (cond
+                                     (error               :error)
+                                     ((null test-result)  :failure)
+                                     ((eql test-result t) :success)
+                                     (t                     test-result))))))
+           (case test-result
+             ((:error)    (incf *error-count*)   (setf (getf *testcase-results* :error)  result))
+             ((:failure)  (incf *failure-count*))
+             ((:skipped)  (incf *skipped-count*) (setf (getf *testcase-results* :reason) result))
+             ((:disabled) (incf *disabled-count*)))
+           (setf (getf *testcase-results* :result)       test-result
+                 (getf *testcase-results* :failure-type) test-result)
+           (push *testcase-results* *suite-results*)
+           test-result))
+    (when (eql :trace *verbose*) (format *trace-output* "  End ~A~%" identifier))))
 
 (defmacro testcase (identifier &key disabled test-func test-data (equal ''equal) expected actual info)
   ;; Better to use a function name than a function for equal, because it's used in reports.
@@ -361,7 +367,7 @@ Stats are stored in a hashtable per identifier level, which makes it easy to get
                 (incf (getf stat (getf testcase :failure-type) 0))
                 (setf (gethash path stats) stat)))))))))
 
-(defun run (&key (suites *test-suites*) keep-stats-p ((:debug *debug*) nil) (name ':suites))
+(defun run (&key (suites *test-suites*) keep-stats-p ((:debug *debug*) *debug*) (name ':suites))
   "Runs all the testcases in all the SUITES passed in or all testsuites registered.
 Statistics can be calculated during a test run, but the default is to use statistics after a test run to calculate stats."
   (let ((suite-results '())
