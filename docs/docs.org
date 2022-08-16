@@ -2,7 +2,7 @@
 
 #+AUTHOR: Phil Marneweck
 #+EMAIL: phil@psychedelic.co.za
-#+DATE: June 30th, 2021
+#+DATE: Tue Aug 16 17:39:51 CEST 2022
 #+TITLE: User Manual for the cl-naive-tests library
 
 #+BEGIN_EXPORT latex
@@ -32,7 +32,7 @@
 #+LATEX_HEADER: \chead{}
 #+LATEX_HEADER: \rhead{\small{User Manual}}
 #+LATEX_HEADER: \lfoot{}
-#+LATEX_HEADER: \cfoot{\tiny{\copyright{2021 Phil Marneweck}}}
+#+LATEX_HEADER: \cfoot{\tiny{\copyright{2021 - 2022 Phil Marneweck}}}
 #+LATEX_HEADER: \rfoot{\small{Page \thepage \hspace{1pt} de \pageref{LastPage}}}
 
 * cl-naive-tests
@@ -137,7 +137,7 @@ Set this variable to true to disable the *junit* formatter to issue
 the properties (which are local to the host).  Used to produce
 reproducible test cases.
 
-** [macro] testsuite =(identifier &body body)=
+** [macro] =testsuite= =(identifier &body body)=
 
 Defines a =TESTSUITE=.
 
@@ -149,7 +149,7 @@ The =BODY= is a list of lisp forms or =TESTCASE= forms.
 
 The results of the =TESTCASE= are collected as results of the =TESTSUITE=.
 
-** [macro] testcase =(identifier &key test-func test-data (equal 'equal) expected actual info)=
+** [macro] =testcase= =(identifier &key test-func test-data (equal 'equal) expected actual info)=
 
 The =TESTCASE= macro evaluates the =ACTUAL= expression and compare its
 result with the =EXPECTED= expression.
@@ -214,7 +214,7 @@ tests results, describing the test.
               :info \"Integer division by zero, giving a DIVISION-BY-ZERO error.\"))
 #+END_SRC
 
-** [function] run =(&key (suites *test-suites*) keep-stats-p ((:debug *debug*) nil) (name "suites"))=
+** [function] =run= =(&key (suites *test-suites*) keep-stats-p ((:debug *debug*) nil) (name "suites"))=
 
 =SUITES= is an equal hash-table mapping testsuite identifiers to
 functions taking the testsuite identifier as argument, and returning a
@@ -235,7 +235,7 @@ Returns:
 - the testsuites result plist;
 - the statistics.
 
-** [function] report =(&optional (suites-results *suites-results*))=
+** [function] =report= =(&optional (suites-results *suites-results*))=
 
 Reports on the pass or failure of the results set over all. This does
 not do any pretty printing  because it needs to be machine
@@ -264,22 +264,22 @@ Returns:
 - the list of failed testcases;
 - the list of other testcases.
 
-** [function] find-testcase =(testcase-identifier suites-results &key test)=
+** [function] =find-testcase= =(testcase-identifier suites-results &key test)=
 
 Finds a testcase in the =SUITES-RESULTS=.
 
-** [function] calc-stats =(result &optional (stats (make-hash-table :test #'equalp)))=
+** [function] =calc-stats= =(result &optional (stats (make-hash-table :test #'equalp)))=
 
 Calculates stats. Stats are simple counts of tests, passed and failed
 per level.  Stats are stored in a hashtable per identifier level,
 which makes it easy to get to in format-results if needed.
 
-** [function] statistics =(results)=
+** [function] =statistics= =(results)=
 
 Can be used to calculate statistics post tests if *keep-stats-p* was
 nil.
 
-** [generic fucntion] format-results =(format results)=
+** [generic fucntion] =format-results= =(format results)=
 
 /format-results (format suites-results)/
 
@@ -296,11 +296,11 @@ levels nl. suites, suite and testcase.
 Formats the =SUITES-RESULTS= as text; can be used to output them on then
 REPL. When =*VERBOSE*=  is =NIL=, the successful testcases are not reported.
 
-** [function] write-results =(suites-results &key (stream *standard-output*) format)=
+** [function] =write-results= =(suites-results &key (stream *standard-output*) format)=
 
 Writes the =SUITES-RESULTS= to the =STREAM=.  Formats the results using =FORMAT-RESULT=.
 
-** [function] save-results =(suites-results &key (file "results.log") format)=
+** [function] =save-results= =(suites-results &key (file "results.log") format)=
 
 Saves the =SUITES-RESULTS= to the =FILE=.  Formats the results using =FORMAT-RESULT=.
 This can be used to produce files that could be used by some thing like gitlab CI.
