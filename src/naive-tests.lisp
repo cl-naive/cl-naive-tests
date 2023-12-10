@@ -4,8 +4,8 @@
   "Tests are stored in here when registered.")
 
 (defvar *suites-results* nil
-  "The result of the last testsuites run.")
-
+  "The result of the last testsuites.")
+ 
 (defvar *suite-results* nil
   "The results of the last testsuite ran.")
 
@@ -39,6 +39,14 @@
 (defvar *failure-count*)
 (defvar *skipped-count*)
 (defvar *test-package*)
+
+
+(defun testsuite-names (&optional (*test-suites* *test-suites*))
+  (loop for name being the hash-keys of *test-suites* collect name))
+
+(defun testsuite-selection (names &optional (*test-suites* *test-suites*))
+  (hash-table-projection (ensure-list names) *test-suites*))
+
 
 (defmacro testsuite (identifier &body body)
   "Defines a TESTSUITE.
@@ -367,11 +375,15 @@ Stats are stored in a hashtable per identifier level, which makes it easy to get
                 (incf (getf stat (getf testcase :failure-type) 0))
                 (setf (gethash path stats) stat)))))))))
 
-(defun run (&key (suites *test-suites*) keep-stats-p ((:debug *debug*) *debug*) (name ':suites))
+(defun run (&key (suites *test-suites*)
+            (name ':suites)
+            (keep-stats-p nil)
+            ((:debug *debug*) *debug*)
+            ((:verbose *verbose*) *verbose*))
   "Runs all the testcases in all the SUITES passed in or all testsuites registered.
 Statistics can be calculated during a test run, but the default is to use statistics after a test run to calculate stats."
   (let ((suite-results '())
-	    (stats         (and keep-stats-p (make-hash-table :test 'equalp))))
+	(stats         (and keep-stats-p (make-hash-table :test 'equalp))))
     ;; Run the testsuites:
     (maphash (lambda (key value) (push (funcall value key) suite-results)) suites)
     ;; Build the suites-results:

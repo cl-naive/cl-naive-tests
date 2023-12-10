@@ -14,6 +14,8 @@
    :skip-testcase-reason
    :testsuite
    :testcase
+   :testsuite-names
+   :testsuite-selection
    :run
    :report
    :statistics
