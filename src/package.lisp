@@ -20,6 +20,8 @@
    :setup-suite
    :tear-down-suite
    :define-suite
+   :testsuite-names
+   :testsuite-selection
    :run
    :report
    :statistics

@@ -375,6 +375,7 @@ Stats are stored in a hashtable per identifier level, which makes it easy to get
                 (incf (getf stat (getf testcase :failure-type) 0))
                 (setf (gethash path stats) stat)))))))))
 
+
 (defgeneric create-suite (test-name)
   (:documentation "Specialize to define test suite. This is run before a test is run. Was introduced so that test can be created in synq with setup-test code and any infrastructure created during setup-test.
 
@@ -438,12 +439,14 @@ Implement the method to add any custom initialization."))
 (defun run (&key (suites *test-suites*)
             (name ':suites)
             (keep-stats-p nil)
-            ((:debug *debug*) *debug*)
+            ((:debug cl-naive-tests:*debug*) cl-naive-tests:*debug*)
             ((:verbose *verbose*) *verbose*))
   "Runs all the testcases in all the SUITES passed in or all testsuites registered.
 Statistics can be calculated during a test run, but the default is to use statistics after a test run to calculate stats."
-  (let ((suite-results '())
-	(stats         (and keep-stats-p (make-hash-table :test 'equalp))))
+
+  (let ((suites-results '())
+        (stats (and keep-stats-p (make-hash-table :test 'equalp))))
+
     ;; Run the testsuites:
 
     (typecase suites
@@ -472,26 +475,17 @@ Statistics can be calculated during a test run, but the default is to use statis
                (error "There are no tests to run.")))))
 
     ;; Build the suites-results:
-    (let ((suites (list :name name
-                        :disabled (reduce (function +) suites-results
-                                          :key (lambda (suite)
-                                                 (getf suite :disabled 0)))
-                        :skipped (reduce (function +) suites-results
-                                         :key (lambda (suite)
-                                                (getf suite :skipped 0)))
-                        :errors (reduce (function +) suites-results
-                                        :key (lambda (suite)
-                                               (getf suite :errors 0)))
-                        :failures (reduce (function +) suites-results
-                                          :key (lambda (suite)
-                                                 (getf suite :failures 0)))
-                        :tests (reduce (function +) suites-results
-                                       :key (lambda (suite)
-                                              (getf suite :tests 0)))
-                        :time (reduce (function +) suites-results
-                                      :key (lambda (suite)
-                                             (getf suite :time 0)))
-                        :suites (nreverse suites-results))))
+    (let ((suites (flet ((sum (field)
+                           (reduce (function +) suites-results
+                                   :key (lambda (suite) (getf suite field 0)))))
+                    (list :name     name
+                          :disabled (sum :disabled)
+                          :skipped  (sum :skipped)
+                          :errors   (sum :errors)
+                          :failures (sum :failures)
+                          :tests    (sum :tests)
+                          :time     (sum :time)
+                          :suites  (nreverse suites-results)))))
       (when keep-stats-p
         ;; Compute the statitics:
         (calc-stats suites stats))
