@@ -54,51 +54,49 @@ The IDENTIFIER is a symbol identifying the testsuite.
 The BODY is a list of lisp forms or TESTCASE forms.
 The results of the TESTCASE are collected as results of the TESTSUITE.
 "
-  (let ((fname (gensym (string identifier))))
-    `(progn
-       (defun ,fname (*testsuite-name*)
-         (when (eql :trace *verbose*) (format *trace-output* "Begin ~A~%" ',identifier))
-         (unwind-protect
-              (let ((*suite-results*      '())
-                    (*test-count*   0)
-                    (*disabled-count* 0)
-                    (*error-count*    0)
-                    (*failure-count*  0)
-                    (*skipped-count*  0)
-                    (*test-package*   nil)
-                    (start-time     (get-universal-time)))
-                (if *debug*
-                    (handler-bind ((error (function invoke-debugger)))
-                      (block ,identifier
-                        ,@body))
-                    (handler-case
-                        (block ,identifier
-                          ,@body)
-                      (error (err)
-                        (incf *error-count*)
-                        (push (list :identifier ',identifier
-                                    :info       "Testsuite failure."
-                                    :expression ',identifier
-                                    :actual     err
-                                    :result     nil
-                                    :error      err
-                                    :failure-type :error)
-                              *suite-results*))))
-                (list :identifier ',identifier
-                      :tests     *test-count*
-                      :errors    *error-count*
-                      :failures  *failure-count*
-                      :disabled  *disabled-count*
-                      :skipped   *skipped-count*
-                      :hostname  (machine-instance)
-                      :package   (or *test-package* (readable-string (package-name *package*)))
-                      :time      (- (get-universal-time) start-time)
-                      :timestamp (iso8601-time-stamp start-time)
-                      :testcases (nreverse *suite-results*)))
-           (when (eql :trace *verbose*) (format *trace-output* "End ~A~%" ',identifier))))
-       (eval-when (:load-toplevel :execute)
-         (setf (gethash ',identifier *test-suites*) (function ,fname)))
-       ',identifier)))
+  `(progn
+     (setf (gethash ',identifier *test-suites*)
+           (lambda (*testsuite-name*)
+             (when (eql :trace *verbose*) (format *trace-output* "Begin ~A~%" ',identifier))
+             (unwind-protect
+                  (let ((*suite-results*      '())
+                        (*test-count*   0)
+                        (*disabled-count* 0)
+                        (*error-count*    0)
+                        (*failure-count*  0)
+                        (*skipped-count*  0)
+                        (*test-package*   nil)
+                        (start-time     (get-universal-time)))
+                    (if *debug*
+                        (handler-bind ((error (function invoke-debugger)))
+                          (block ,identifier
+                            ,@body))
+                        (handler-case
+                            (block ,identifier
+                              ,@body)
+                          (error (err)
+                            (incf *error-count*)
+                            (push (list :identifier ',identifier
+                                        :info       "Testsuite failure."
+                                        :expression ',identifier
+                                        :actual     err
+                                        :result     nil
+                                        :error      err
+                                        :failure-type :error)
+                                  *suite-results*))))
+                    (list :identifier ',identifier
+                          :tests     *test-count*
+                          :errors    *error-count*
+                          :failures  *failure-count*
+                          :disabled  *disabled-count*
+                          :skipped   *skipped-count*
+                          :hostname  (machine-instance)
+                          :package   (or *test-package* (readable-string (package-name *package*)))
+                          :time      (- (get-universal-time) start-time)
+                          :timestamp (iso8601-time-stamp start-time)
+                          :testcases (nreverse *suite-results*)))
+               (when (eql :trace *verbose*) (format *trace-output* "End ~A~%" ',identifier)))))
+     ',identifier))
 
 (define-condition disable-testcase (condition)
   ()
@@ -377,9 +375,12 @@ Stats are stored in a hashtable per identifier level, which makes it easy to get
 
 
 (defgeneric create-suite (test-name)
-  (:documentation "Specialize to define test suite. This is run before a test is run. Was introduced so that test can be created in synq with setup-test code and any infrastructure created during setup-test.
+  (:documentation "Specialize to define test suite. This is run before a test is run. Was introduced so that test can be created in synq with setup-test code and any infrastructure created during setup-test."))
 
-;;TODO: Pascal do you have a better explanation?"))
+(defmethod create-suite (test-name)
+  "Default method, does nothing."
+  ;; We need a default method, since it's called when running the tests created with TESTSUITE only.
+  (values))
 
 (defgeneric setup-suite (test-name)
   (:documentation "Used to setup the multiverse, universe and other infrastructure for a test.
@@ -397,42 +398,49 @@ Implement the method to add any custom initialization."))
   "Default does nothing."
   nil)
 
-;; Because tests can no be created on the fly just before running them we need a list of tests and testsuite/testcase macros where designed to be run compile time...
-;;TODO: Pascal can you do a better explanation please.
+;; Because tests can be created on the fly just before running them,
+;; we need to keep the list of test names:
 
-(defparameter *test-suite-names* nil)
+(defvar *test-suite-names* nil)
 
 (defmacro define-suite ((name) &body body)
+  "
+Define a CREATE-SUITE method on the NAME (eql specializer),
+to define the test suite at run-time.
+The name of the test suite is registered immediately in
+*TEST-SUITE-NAMES* for reference by RUN.
+"
   `(progn
-     (defmethod create-suite ((test-name (eql ,name)))
-       (cl-naive-tests:testsuite ,name
-         ,@body))
-     (push ,name *test-suite-names*) ,name))
+     (defmethod create-suite ((test-name (eql ',name)))
+       (cl-naive-tests:testsuite ,name ,@body))
+     (eval-when (:compile-toplevel :load-toplevel :execute)
+       (push ',name *test-suite-names*))
+     ',name))
+
+(defun %run-suite (suite-identifier &optional test-function)
+  ;; Note: CREATE-SUITE is called first, to create and register the testsuite.
+  ;; SETUP-SUITE and TEARDOWN-SUITE are called around running the testsuite.
+  ;; TEARDOWN-SUITE is called in a unwind-protect cleanup clause.
+  (create-suite suite-identifier)
+  (let ((test-function (or test-function (gethash suite-identifier cl-naive-tests:*test-suites*))))
+    (unless test-function
+      (error "The test ~S does not exist." suite-identifier))
+    (setup-suite suite-identifier)
+    (unwind-protect
+         (funcall test-function suite-identifier)
+      (tear-down-suite suite-identifier))))
+
+(defun run-suite (suite)
+  (%run-suite suite (gethash suite cl-naive-tests:*test-suites*)))
 
 (defun run-suites-list (suites)
-  (let ((suites-results '()))
-    (dolist (suite suites)
-      (push (let ((test-results))
-              (setup-suite suite)
-              (create-suite suite)
-              (unless (gethash suite cl-naive-tests:*test-suites*)
-                (error "The test ~S does not exist." suites))
-              (setf test-results
-                    (funcall (gethash suite cl-naive-tests:*test-suites*) suite))
-              (tear-down-suite suite)
-              test-results)
-            suites-results))
-    suites-results))
+  (mapcar (function run-suite) suites))
 
 (defun run-suites-hashtable (suites)
   (let ((suites-results '()))
-    (maphash (lambda (key value) (push (let ((test-results))
-                                         (setup-suite key)
-                                         (create-suite key)
-                                         (setf test-results (funcall value key))
-                                         (tear-down-suite key)
-                                         test-results)
-                                       suites-results))
+    (maphash (lambda (suite-identifier test-function)
+               (push (%run-suite suite-identifier test-function)
+                     suites-results))
              suites)
     suites-results))
 
@@ -448,34 +456,28 @@ Statistics can be calculated during a test run, but the default is to use statis
         (stats (and keep-stats-p (make-hash-table :test 'equalp))))
 
     ;; Run the testsuites:
-
-    (if suites
-        (typecase suites
-          (keyword
-           (push (let ((test-results))
-                   (setup-suite suites)
-                   (create-suite suites)
-                   (unless (gethash suites cl-naive-tests:*test-suites*)
-                     (error "The test ~S does not exist." suites))
-                   (setf test-results
-                         (funcall (gethash suites cl-naive-tests:*test-suites*)
-                                  cl-naive-tests:*test-suites*))
-                   (tear-down-suite suites)
-                   test-results)
-                 suites-results))
-          (hash-table
-           (setf suites-results (run-suites-hashtable suites)))
-          (list
-           (setf suites-results (run-suites-list suites)))
-          (otherwise
-           (error "Don't know how to process the type of suites list.")))
-        (if *test-suite-names*
-            (setf suites-results (run-suites-list *test-suite-names*))
-            (if cl-naive-tests:*test-suites*
-                (setf suites-results
-                      (run-suites-hashtable cl-naive-tests:*test-suites*))
-                (error "There are no tests to run."))))
-
+    (cond
+      (suites
+       (typecase suites
+         (keyword
+          (when *verbose* (format *trace-output* "Running explicit test suites ~S~%" suites))
+          (push (run-suite suites) suites-results))
+         (hash-table
+          (when *verbose* (format *trace-output* "Running explicit test suites ~S~%" (loop for key being the hash-keys of suites collect key)))
+          (setf suites-results (run-suites-hashtable suites)))
+         (list
+          (when *verbose* (format *trace-output* "Running explicit test suites ~S~%" suites))
+          (setf suites-results (run-suites-list suites)))
+         (otherwise
+          (error "Don't know how to process the type of suites list."))))
+      (*test-suite-names*
+       (when *verbose* (format *trace-output* "Running created test suites ~S~%" *test-suite-names*))
+       (setf suites-results (run-suites-list *test-suite-names*)))
+      (*test-suites*
+       (when *verbose* (format *trace-output* "Running test suites ~S~%" (loop for key being the hash-keys of *test-suites* collect key)))
+       (setf suites-results (run-suites-hashtable *test-suites*)))
+      (t
+       (error "There are no tests to run.")))
     ;; Build the suites-results:
     (let ((suites (flet ((sum (field)
                            (reduce (function +) suites-results
