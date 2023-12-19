@@ -415,7 +415,7 @@ Implement the method to add any custom initialization."))
       (push (let ((test-results))
               (setup-suite suite)
               (create-suite suite)
-              (unless (gethash suites cl-naive-tests:*test-suites*)
+              (unless (gethash suite cl-naive-tests:*test-suites*)
                 (error "The test ~S does not exist." suites))
               (setf test-results
                     (funcall (gethash suite cl-naive-tests:*test-suites*) suite))
@@ -449,30 +449,32 @@ Statistics can be calculated during a test run, but the default is to use statis
 
     ;; Run the testsuites:
 
-    (typecase suites
-      (keyword
-       (push (let ((test-results))
-               (setup-suite suites)
-               (create-suite suites)
-               (unless (gethash suites cl-naive-tests:*test-suites*)
-                 (error "The test ~S does not exist." suites))
-               (setf test-results
-                     (funcall (gethash suites cl-naive-tests:*test-suites*)
-                              cl-naive-tests:*test-suites*))
-               (tear-down-suite suites)
-               test-results)
-             suites-results))
-      (hash-table
-       (setf suites-results (run-suites-hashtable suites)))
-      (list
-       (setf suites-results (run-suites-list suites)))
-      (otherwise
-       (if *test-suite-names*
-           (setf suites-results (run-suites-list *test-suite-names*))
-           (if cl-naive-tests:*test-suites*
-               (setf suites-results
-                     (run-suites-hashtable cl-naive-tests:*test-suites*))
-               (error "There are no tests to run.")))))
+    (if suites
+        (typecase suites
+          (keyword
+           (push (let ((test-results))
+                   (setup-suite suites)
+                   (create-suite suites)
+                   (unless (gethash suites cl-naive-tests:*test-suites*)
+                     (error "The test ~S does not exist." suites))
+                   (setf test-results
+                         (funcall (gethash suites cl-naive-tests:*test-suites*)
+                                  cl-naive-tests:*test-suites*))
+                   (tear-down-suite suites)
+                   test-results)
+                 suites-results))
+          (hash-table
+           (setf suites-results (run-suites-hashtable suites)))
+          (list
+           (setf suites-results (run-suites-list suites)))
+          (otherwise
+           (error "Don't know how to process the type of suites list.")))
+        (if *test-suite-names*
+            (setf suites-results (run-suites-list *test-suite-names*))
+            (if cl-naive-tests:*test-suites*
+                (setf suites-results
+                      (run-suites-hashtable cl-naive-tests:*test-suites*))
+                (error "There are no tests to run."))))
 
     ;; Build the suites-results:
     (let ((suites (flet ((sum (field)
