@@ -16,6 +16,10 @@
    :testcase
    :testsuite-names
    :testsuite-selection
+   :create-suite
+   :setup-suite
+   :tear-down-suite
+   :define-suite
    :run
    :report
    :statistics
@@ -23,5 +27,4 @@
    :calc-stats
    :format-results
    :write-results
-   :save-results
-   ))
+   :save-results))
