@@ -10,6 +10,7 @@ test tests:
 		--eval '(push #P"$(THISDIR)" asdf:*central-registry*)' \
 		--eval '(ql:quickload :cl-naive-tests)' \
 		--eval '(ql:quickload :cl-naive-tests.tests)' \
+		--eval '(setf cl-naive-tests::*verbose* nil)' \
 		--eval '(defparameter cl-naive-tests.tests::*disable-failure-tests* t)' \
 		--eval '(cl-naive-tests:run)' \
 		--eval '(cl-naive-tests:run :name "testsuites-with-sbcl")' \

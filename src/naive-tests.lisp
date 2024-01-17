@@ -54,52 +54,49 @@ The IDENTIFIER is a symbol identifying the testsuite.
 The BODY is a list of lisp forms or TESTCASE forms.
 The results of the TESTCASE are collected as results of the TESTSUITE.
 "
-  (let ((fname (gensym (string identifier))))
-    `(progn
-       (defun ,fname (*testsuite-name*)
-         (when (eql :trace *verbose*) (format *trace-output* "Begin ~A~%" ',identifier))
-         (unwind-protect
-              (let ((*suite-results*      '())
-                    (*test-count*   0)
-                    (*disabled-count* 0)
-                    (*error-count*    0)
-                    (*failure-count*  0)
-                    (*skipped-count*  0)
-                    (*test-package*   nil)
-                    (start-time     (get-universal-time)))
-                (if *debug*
-                    (handler-bind ((error (function invoke-debugger)))
-                      (block ,identifier
-                        ,@body))
-                    (handler-case
-                        (block ,identifier
-                          ,@body)
-                      (error (err)
-                        (incf *error-count*)
-                        (push (list :identifier ',identifier
-	                            :info       "Testsuite failure."
-                                    :expression ',identifier
-                                    :actual     err
-	                            :result     nil
-                                    :error      err
-                                    :failure-type :error)
-                              *suite-results*))))
-                (list :identifier ',identifier
-                      :tests     *test-count*
-                      :errors    *error-count*
-                      :failures  *failure-count*
-                      :disabled  *disabled-count*
-                      :skipped   *skipped-count*
-                      :hostname  (machine-instance)
-                      :package   (or *test-package* (readable-string (package-name *package*)))
-                      :time      (- (get-universal-time) start-time)
-                      :timestamp (iso8601-time-stamp start-time)
-                      :testcases (nreverse *suite-results*)))
-           (when (eql :trace *verbose*) (format *trace-output* "End ~A~%" ',identifier))))
-       (eval-when (:load-toplevel :execute)
-         (setf (gethash ',identifier *test-suites*) (function ,fname)))
-       ',identifier)))
-
+  `(progn
+     (setf (gethash ',identifier *test-suites*)
+           (lambda (*testsuite-name*)
+             (when (eql :trace *verbose*) (format *trace-output* "Begin ~A~%" ',identifier))
+             (unwind-protect
+                  (let ((*suite-results*      '())
+                        (*test-count*   0)
+                        (*disabled-count* 0)
+                        (*error-count*    0)
+                        (*failure-count*  0)
+                        (*skipped-count*  0)
+                        (*test-package*   nil)
+                        (start-time     (get-universal-time)))
+                    (if *debug*
+                        (handler-bind ((error (function invoke-debugger)))
+                          (block ,identifier
+                            ,@body))
+                        (handler-case
+                            (block ,identifier
+                              ,@body)
+                          (error (err)
+                            (incf *error-count*)
+                            (push (list :identifier ',identifier
+                                        :info       "Testsuite failure."
+                                        :expression ',identifier
+                                        :actual     err
+                                        :result     nil
+                                        :error      err
+                                        :failure-type :error)
+                                  *suite-results*))))
+                    (list :identifier ',identifier
+                          :tests     *test-count*
+                          :errors    *error-count*
+                          :failures  *failure-count*
+                          :disabled  *disabled-count*
+                          :skipped   *skipped-count*
+                          :hostname  (machine-instance)
+                          :package   (or *test-package* (readable-string (package-name *package*)))
+                          :time      (- (get-universal-time) start-time)
+                          :timestamp (iso8601-time-stamp start-time)
+                          :testcases (nreverse *suite-results*)))
+               (when (eql :trace *verbose*) (format *trace-output* "End ~A~%" ',identifier)))))
+     ',identifier))
 
 (define-condition disable-testcase (condition)
   ()
@@ -121,12 +118,17 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
         (asdf-output-translations (namestring (asdf:apply-output-translations "/")))
         (namestring (namestring pathname)))
     (let ((namestring
-            (namestring (make-pathname :type "lisp"
-                                       :defaults (if (string= namestring asdf-output-translations :end1 (length asdf-output-translations))
-                                                     ;; in asdf-output-translations:
-                                                     (subseq namestring (1- (length asdf-output-translations)))
-                                                     ;; outside:
-                                                     namestring)))))
+            (namestring
+             (make-pathname
+              :type "lisp"
+              :defaults (if (and (>= (length namestring)
+                                     (length asdf-output-translations))
+                                 (string= namestring asdf-output-translations
+                                          :end1 (length asdf-output-translations)))
+                            ;; in asdf-output-translations:
+                            (subseq namestring (1- (length asdf-output-translations)))
+                            ;; outside:
+                            namestring)))))
       (if ci-project-dir
           (enough-namestring namestring (format nil "~A/" ci-project-dir))
           namestring))))
@@ -180,7 +182,6 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
               (progn (funcall set-error err)
                      (funcall set-result err)))))))
 
-
 (defun %testcase (identifier disabled test-func test-data equal expected actual expression info package)
   (when (eql :trace *verbose*) (format *trace-output* "  Begin ~A~%" identifier))
   (unwind-protect
@@ -204,11 +205,11 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
                           (setf syserr (get-output-stream-string *error-output*))))
                    (setf sysout (get-output-stream-string *standard-output*))))))
          (let* ((*testcase-results* (list :identifier   identifier
-	                                  :info         info
+                                          :info         info
                                           :equal        equal
                                           :test-func    test-func
                                           :test-data    test-data
-	                                  :expected     expected
+                                          :expected     expected
                                           :expression   expression
                                           :actual       result
                                           :failure-type (case error
@@ -228,7 +229,7 @@ The results of the TESTCASE are collected as results of the TESTSUITE.
                                              (test-func (funcall test-func *testcase-results* info))
                                              (error     nil)
                                              (equal     (not (not (funcall equal expected result))))
-			                     (t         (not (not (equal expected result))))))))
+                                             (t         (not (not (equal expected result))))))))
                                    (cond
                                      (error               :error)
                                      ((null test-result)  :failure)
@@ -318,8 +319,6 @@ EXAMPLE:
               ,test-func
               ,test-data ,equal ,expected (lambda () ,actual) ',actual ,info ,*package*))
 
-
-
 ;;; ========================================
 ;;; formatting results
 ;;; ========================================
@@ -340,11 +339,10 @@ The default method just outputs the results using lisp format string."))
   "Writes results to file. Formats the results using FORMAT-RESULT."
   (ensure-directories-exist file)
   (with-open-file (stream file
-			              :direction :output
-			              :if-exists :supersede
-			              :if-does-not-exist :create)
+                          :direction :output
+                          :if-exists :supersede
+                          :if-does-not-exist :create)
     (write-results suites-results :stream stream :format format)))
-
 
 ;;; ========================================
 ;;; Running and Reporting testsuites
@@ -354,11 +352,11 @@ The default method just outputs the results using lisp format string."))
   "Finds a result in the suites."
   (dolist (suite (getf suites :suites))
     (let ((testcase (find test-identifier
-	                      (getf suite :testcases)
-	                      :test (or test #'equalp)
-	                      :key (lambda (testcase)
-		                         (when (listp testcase)
-		                           (getf testcase :identifier))))))
+                          (getf suite :testcases)
+                          :test (or test #'equalp)
+                          :key (lambda (testcase)
+                                 (when (listp testcase)
+                                   (getf testcase :identifier))))))
       (when testcase (return-from find-testcase testcase)))))
 
 (defun calc-stats (suites &optional (stats (make-hash-table :test #'equalp)))
@@ -375,26 +373,123 @@ Stats are stored in a hashtable per identifier level, which makes it easy to get
                 (incf (getf stat (getf testcase :failure-type) 0))
                 (setf (gethash path stats) stat)))))))))
 
+
+(defgeneric create-suite (test-name)
+  (:documentation "Specialize to define test suite. This is run before a test is run. Was introduced so that test can be created in synq with setup-test code and any infrastructure created during setup-test."))
+
+(defmethod create-suite (test-name)
+  "Default method, does nothing."
+  ;; We need a default method, since it's called when running the tests created with TESTSUITE only.
+  (values))
+
+(defgeneric setup-suite (test-name)
+  (:documentation "Used to setup the multiverse, universe and other infrastructure for a test.
+
+Implement the method to add any custom initialization."))
+
+(defmethod setup-suite (test-name)
+  "Default does nothing."
+  nil)
+
+(defgeneric tear-down-suite (test-name)
+  (:documentation "This is run after an individual test, specialize to clean up any test infrastructure created by the setup-test or the tests them selves."))
+
+(defmethod tear-down-suite (test-name)
+  "Default does nothing."
+  nil)
+
+;; Because tests can be created on the fly just before running them,
+;; we need to keep the list of test names:
+
+(defvar *test-suite-names* nil)
+
+(defmacro define-suite ((name) &body body)
+  "
+Define a CREATE-SUITE method on the NAME (eql specializer),
+to define the test suite at run-time.
+The name of the test suite is registered immediately in
+*TEST-SUITE-NAMES* for reference by RUN.
+"
+  `(progn
+     (defmethod create-suite ((test-name (eql ',name)))
+       (cl-naive-tests:testsuite ,name ,@body))
+     (eval-when (:compile-toplevel :load-toplevel :execute)
+       (push ',name *test-suite-names*))
+     ',name))
+
+(defun %run-suite (suite-identifier &optional test-function)
+  ;; Note: CREATE-SUITE is called first, to create and register the testsuite.
+  ;; SETUP-SUITE and TEARDOWN-SUITE are called around running the testsuite.
+  ;; TEARDOWN-SUITE is called in a unwind-protect cleanup clause.
+  (create-suite suite-identifier)
+  (let ((test-function (or test-function (gethash suite-identifier cl-naive-tests:*test-suites*))))
+    (unless test-function
+      (error "The test ~S does not exist." suite-identifier))
+    (setup-suite suite-identifier)
+    (unwind-protect
+         (funcall test-function suite-identifier)
+      (tear-down-suite suite-identifier))))
+
+(defun run-suite (suite)
+  (%run-suite suite (gethash suite cl-naive-tests:*test-suites*)))
+
+(defun run-suites-list (suites)
+  (mapcar (function run-suite) suites))
+
+(defun run-suites-hashtable (suites)
+  (let ((suites-results '()))
+    (maphash (lambda (suite-identifier test-function)
+               (push (%run-suite suite-identifier test-function)
+                     suites-results))
+             suites)
+    suites-results))
+
 (defun run (&key (suites *test-suites*)
             (name ':suites)
             (keep-stats-p nil)
-            ((:debug *debug*) *debug*)
+            ((:debug cl-naive-tests:*debug*) cl-naive-tests:*debug*)
             ((:verbose *verbose*) *verbose*))
   "Runs all the testcases in all the SUITES passed in or all testsuites registered.
 Statistics can be calculated during a test run, but the default is to use statistics after a test run to calculate stats."
-  (let ((suite-results '())
-	(stats         (and keep-stats-p (make-hash-table :test 'equalp))))
+
+  (let ((suites-results '())
+        (stats (and keep-stats-p (make-hash-table :test 'equalp))))
+
     ;; Run the testsuites:
-    (maphash (lambda (key value) (push (funcall value key) suite-results)) suites)
+    (cond
+      (suites
+       (typecase suites
+         (keyword
+          (when *verbose* (format *trace-output* "Running explicit test suites ~S~%" suites))
+          (push (run-suite suites) suites-results))
+         (hash-table
+          (when *verbose* (format *trace-output* "Running explicit test suites ~S~%" (loop for key being the hash-keys of suites collect key)))
+          (setf suites-results (run-suites-hashtable suites)))
+         (list
+          (when *verbose* (format *trace-output* "Running explicit test suites ~S~%" suites))
+          (setf suites-results (run-suites-list suites)))
+         (otherwise
+          (error "Don't know how to process the type of suites list."))))
+      (*test-suite-names*
+       (when *verbose* (format *trace-output* "Running created test suites ~S~%" *test-suite-names*))
+       (setf suites-results (run-suites-list *test-suite-names*)))
+      (*test-suites*
+       (when *verbose* (format *trace-output* "Running test suites ~S~%" (loop for key being the hash-keys of *test-suites* collect key)))
+       (setf suites-results (run-suites-hashtable *test-suites*)))
+      (t
+       (error "There are no tests to run.")))
     ;; Build the suites-results:
-    (let ((suites (list :name     name
-                        :disabled (reduce (function +) suite-results :key (lambda (suite) (getf suite :disabled 0)))
-                        :skipped  (reduce (function +) suite-results :key (lambda (suite) (getf suite :skipped  0)))
-                        :errors   (reduce (function +) suite-results :key (lambda (suite) (getf suite :errors   0)))
-                        :failures (reduce (function +) suite-results :key (lambda (suite) (getf suite :failures 0)))
-                        :tests    (reduce (function +) suite-results :key (lambda (suite) (getf suite :tests    0)))
-                        :time     (reduce (function +) suite-results :key (lambda (suite) (getf suite :time     0)))
-                        :suites   (nreverse suite-results))))
+    (let ((suites (flet ((sum (field)
+                           (reduce (function +) suites-results
+                                   :key (lambda (suite) (getf suite field 0)))))
+                    (list :name     name
+                          :disabled (sum :disabled)
+                          :skipped  (sum :skipped)
+                          :errors   (sum :errors)
+                          :failures (sum :failures)
+                          :tests    (sum :tests)
+                          :time     (sum :time)
+                          :suites  (nreverse suites-results)))))
       (when keep-stats-p
         ;; Compute the statitics:
         (calc-stats suites stats))
@@ -404,8 +499,8 @@ Statistics can be calculated during a test run, but the default is to use statis
 (defun report (&optional (suites-results *suites-results*))
   "Reports on the pass or failure of the results set over all. This does not do any pretty printing etc because it needs to be machine readable. If you want pretty reporting look at format-results or do your own."
   (let ((passed '())
-	    (failed '())
-	    (other  '()))
+        (failed '())
+        (other  '()))
     (dolist (suite (getf suites-results :suites))
       (dolist (testcase (getf suite :testcases))
         (case (getf testcase :failure-type)
@@ -435,7 +530,7 @@ Statistics can be calculated during a test run, but the default is to use statis
     :collect (subseq text start end)))
 
 (defun print-testcase-result (testcase &key (verbose *verbose*)
-                                         ((:output *standard-output*) *standard-output*))
+                              ((:output *standard-output*) *standard-output*))
   (case (getf testcase :failure-type)
     ((:success)
      (when verbose
@@ -476,15 +571,15 @@ Statistics can be calculated during a test run, but the default is to use statis
              (getf testcase :failure-type))))
   (when verbose
     (format t "~@[Data:~32T~S~%~]~@[Info:~32T~S~%~]"
-	    (getf testcase :test-data)
-	    (getf testcase :info))
+            (getf testcase :test-data)
+            (getf testcase :info))
     (format t "~@[Sysout:~%~{    ~A~%~}~]~@[Syserr:~%~{    ~A~%~}~]"
-	    (split-lines (getf testcase :sysout))
-	    (split-lines (getf testcase :syserr))))
+            (split-lines (getf testcase :sysout))
+            (split-lines (getf testcase :syserr))))
   (finish-output))
 
 (defun print-testsuites-results (suites &key (verbose *verbose*)
-                                      ((:output *standard-output*) *standard-output*))
+                                 ((:output *standard-output*) *standard-output*))
   "When VERBOSE is NIL don't report the successes."
   (dolist (suite (getf suites :suites))
     (format t "~%Testsuite ~A:~%" (getf suite :identifier))
@@ -495,7 +590,6 @@ Statistics can be calculated during a test run, but the default is to use statis
 (defmethod format-results ((format (eql :text)) suites-results)
   (with-output-to-string (*standard-output*)
     (print-testsuites-results suites-results)))
-
 
 ;;; ========================================
 ;;; JUNIT format
@@ -510,95 +604,92 @@ Statistics can be calculated during a test run, but the default is to use statis
 
 (defvar *suite-name* "" "Current testsuite name.")
 
-
 (defun junit-format-testcase (testcase)
   (cl-who:with-html-output-to-string (*standard-output* nil :indent nil)
-      ;; <!-- testcase can appear multiple times, see /testsuites/testsuite@tests -->
-      ;; <testcase name=""       <!-- Name of the test method, required. -->
-	  ;;       assertions="" <!-- number of assertions in the test case. optional. not supported by maven surefire. -->
-	  ;;       classname=""  <!-- Full class name for the class the test method is in. required -->
-	  ;;       status=""     <!-- optional. not supported by maven surefire. -->
-	  ;;       time=""       <!-- Time taken (in seconds) to execute the test. optional -->
-	  ;;       >
+    ;; <!-- testcase can appear multiple times, see /testsuites/testsuite@tests -->
+    ;; <testcase name=""       <!-- Name of the test method, required. -->
+    ;;       assertions="" <!-- number of assertions in the test case. optional. not supported by maven surefire. -->
+    ;;       classname=""  <!-- Full class name for the class the test method is in. required -->
+    ;;       status=""     <!-- optional. not supported by maven surefire. -->
+    ;;       time=""       <!-- Time taken (in seconds) to execute the test. optional -->
+    ;;       >
+    ;;
+    ;;   <!-- If the test was not executed or failed, you can specify one of the skipped, error or failure elements. -->
+    ;;
+    ;;   <!-- skipped can appear 0 or once. optional -->
+    ;;   <skipped message=""   <!-- message/description string why the test case was skipped. optional -->
+    ;;   />
+    ;;
+    ;;   <!-- error indicates that the test errored.
+    ;;        An errored test had an unanticipated problem.
+    ;;        For example an unchecked throwable (exception), crash or a problem with the implementation of the test.
+    ;;        Contains as a text node relevant data for the error, for example a stack trace. optional -->
+    ;;   <error message="" <!-- The error message. e.g., if a java exception is thrown, the return value of getMessage() -->
+    ;;      type=""    <!-- The type of error that occured. e.g., if a java execption is thrown the full class name of the exception. -->
+    ;;      >error description</error>
+    ;;
+    ;;   <!-- failure indicates that the test failed.
+    ;;        A failure is a condition which the code has explicitly failed by using the mechanisms for that purpose.
+    ;;        For example via an assertEquals.
+    ;;        Contains as a text node relevant data for the failure, e.g., a stack trace. optional -->
+    ;;   <failure message="" <!-- The message specified in the assert. -->
+    ;;        type=""    <!-- The type of the assert. -->
+    ;;        >failure description</failure>
+    ;;
+    ;;   <!-- Data that was written to standard out while the test was executed. optional -->
+    ;;   <system-out>STDOUT text</system-out>
+    ;;
+    ;;   <!-- Data that was written to standard error while the test was executed. optional -->
+    ;;   <system-err>STDERR text</system-err>
+    ;; </testcase>
+    (cl-who:htm
+     (:testcase
+      :name       (format nil "~A.~A" *suite-name* (getf testcase :identifier))
+      :assertions (prin1-to-string (getf testcase :assertions 0))
+      :classname  (princ-to-string (getf testcase :classname ""))
+      :status     (princ-to-string (or (getf testcase :status)
+                                       (case (getf testcase :failure-type)
+                                         ((:failure) "FAILED")
+                                         ((:success) "SUCCESSFUL")
+                                         (otherwise  "ABORTED"))))
+      :time       (prin1-to-string (getf testcase :time 0))
+      (case (getf testcase :failure-type)
+        ((:success))
+        ((:disabled))
+        ((:skipped)
+         (cl-who:htm
+          (:skipped
+           :message (cl-who:escape-string (getf testcase :reason)))))
+        ((:error)
+         ;; <error message="" <!-- The error message. e.g., if a java exception is thrown, the return value of getMessage() -->
+         ;;        type=""    <!-- The type of error that occured. e.g., if a java execption is thrown the full class name of the exception. -->
+         ;;      >error description</error>
+         (cl-who:htm
+          (:error
+           :message (cl-who:escape-string (princ-to-string (getf testcase :error)))
+           :type    (cl-who:escape-string (prin1-to-string (class-of (getf testcase :error))))
+           (cl-who:esc (with-output-to-string (out)
+                         (print-testcase-result testcase :output out))))))
+        ((:failure)
+         ;; <failure message="" <!-- The message specified in the assert. -->
+         ;;          type=""    <!-- The type of the assert. -->
+         ;;      >failure description</failure>
+         (cl-who:htm
+          (:failure
+           :message (cl-who:escape-string (getf testcase :info))
+           :type    (cl-who:escape-string (prin1-to-string (or (getf testcase :test-func) (getf testcase :equal))))
+           (cl-who:esc (with-output-to-string (out)
+                         (print-testcase-result testcase :output out))))))
+        (otherwise))
       ;;
-      ;;   <!-- If the test was not executed or failed, you can specify one of the skipped, error or failure elements. -->
+      ;; Testcase output (testsuite have their own system-out/system-err
       ;;
-      ;;   <!-- skipped can appear 0 or once. optional -->
-      ;;   <skipped message=""   <!-- message/description string why the test case was skipped. optional -->
-	  ;;   />
-      ;;
-      ;;   <!-- error indicates that the test errored.
-      ;;        An errored test had an unanticipated problem.
-      ;;        For example an unchecked throwable (exception), crash or a problem with the implementation of the test.
-      ;;        Contains as a text node relevant data for the error, for example a stack trace. optional -->
-      ;;   <error message="" <!-- The error message. e.g., if a java exception is thrown, the return value of getMessage() -->
-	  ;;      type=""    <!-- The type of error that occured. e.g., if a java execption is thrown the full class name of the exception. -->
-	  ;;      >error description</error>
-      ;;
-      ;;   <!-- failure indicates that the test failed.
-      ;;        A failure is a condition which the code has explicitly failed by using the mechanisms for that purpose.
-      ;;        For example via an assertEquals.
-      ;;        Contains as a text node relevant data for the failure, e.g., a stack trace. optional -->
-      ;;   <failure message="" <!-- The message specified in the assert. -->
-	  ;;        type=""    <!-- The type of the assert. -->
-	  ;;        >failure description</failure>
-      ;;
-      ;;   <!-- Data that was written to standard out while the test was executed. optional -->
-      ;;   <system-out>STDOUT text</system-out>
-      ;;
-      ;;   <!-- Data that was written to standard error while the test was executed. optional -->
-      ;;   <system-err>STDERR text</system-err>
-      ;; </testcase>
-	  (cl-who:htm
-	   (:testcase
-	    :name       (format nil "~A.~A" *suite-name* (getf testcase :identifier))
-        :assertions (prin1-to-string (getf testcase :assertions 0))
-        :classname  (princ-to-string (getf testcase :classname ""))
-        :status     (princ-to-string (or (getf testcase :status)
-                                         (case (getf testcase :failure-type)
-                                           ((:failure) "FAILED")
-                                           ((:success) "SUCCESSFUL")
-                                           (otherwise  "ABORTED"))))
-        :time       (prin1-to-string (getf testcase :time 0))
-        (case (getf testcase :failure-type)
-          ((:success))
-          ((:disabled))
-          ((:skipped)
-           (cl-who:htm
-	    (:skipped
-             :message (cl-who:escape-string (getf testcase :reason)))))
-          ((:error)
-           ;; <error message="" <!-- The error message. e.g., if a java exception is thrown, the return value of getMessage() -->
-           ;;        type=""    <!-- The type of error that occured. e.g., if a java execption is thrown the full class name of the exception. -->
-           ;;      >error description</error>
-           (cl-who:htm
-		    (:error
-		     :message (cl-who:escape-string (princ-to-string (getf testcase :error)))
-		     :type    (cl-who:escape-string (prin1-to-string (class-of (getf testcase :error))))
-		     (cl-who:esc (with-output-to-string (out)
-                           (print-testcase-result testcase :output out))))))
-          ((:failure)
-           ;; <failure message="" <!-- The message specified in the assert. -->
-	       ;;          type=""    <!-- The type of the assert. -->
-	       ;;      >failure description</failure>
-           (cl-who:htm
-		    (:failure
-		     :message (cl-who:escape-string (getf testcase :info))
-		     :type    (cl-who:escape-string (prin1-to-string (or (getf testcase :test-func) (getf testcase :equal))))
-		     (cl-who:esc (with-output-to-string (out)
-                           (print-testcase-result testcase :output out))))))
-          (otherwise))
-        ;;
-        ;; Testcase output (testsuite have their own system-out/system-err
-        ;;
-        ;; <!-- Data that was written to standard out while the test was executed. optional -->
-        ;; <system-out>STDOUT text</system-out>
-        (cl-who:htm (:system-out (cl-who:esc (getf testcase :sysout))))
-        ;; <!-- Data that was written to standard error while the test was executed. optional -->
-        ;; <system-err>STDERR text</system-err>
-        (cl-who:htm (:system-err (cl-who:esc (getf testcase :syserr))))))))
-
-
+      ;; <!-- Data that was written to standard out while the test was executed. optional -->
+      ;; <system-out>STDOUT text</system-out>
+      (cl-who:htm (:system-out (cl-who:esc (getf testcase :sysout))))
+      ;; <!-- Data that was written to standard error while the test was executed. optional -->
+      ;; <system-err>STDERR text</system-err>
+      (cl-who:htm (:system-err (cl-who:esc (getf testcase :syserr))))))))
 
 (defvar *suite-id* 0)
 
@@ -606,13 +697,13 @@ Statistics can be calculated during a test run, but the default is to use statis
   (loop
     :for (new old) :in '((#\_ #\-) (#\. #\:))
     :for changed := (substitute new old (string-downcase name))
-      :then (substitute new old changed)
+    :then (substitute new old changed)
     :finally (return changed)))
 
 (defun junit-format-testsuite (suite)
   (let ((*suite-name* (prepare-testsuite-name (princ-to-string (getf suite :identifier)))))
     (cl-who:with-html-output-to-string (*standard-output* nil :indent nil)
-	  (cl-who:htm
+      (cl-who:htm
        ;; <!-- testsuite can appear multiple times, if contained in a testsuites element.
        ;;      It can also be the root element. -->
        ;; <testsuite name=""      <!-- Full (class) name of the test for non-aggregated testsuite documents.
@@ -632,39 +723,39 @@ Statistics can be calculated during a test run, but the default is to use statis
        ;;   timestamp="" <!-- when the test was executed in ISO 8601 format (2014-01-21T16:17:18). Timezone may not be specified. optional.
        ;;                     not supported by maven surefire. -->
        ;;   >
-	   (:testsuite
-	    :id        (prin1-to-string (incf *suite-id*))
-	    :name      *suite-name*
-        :package   (getf suite :package)
-        :tests     (prin1-to-string (getf suite :tests    0))
-        :disabled  (prin1-to-string (getf suite :disabled 0))
-        :errors    (prin1-to-string (getf suite :errors   0))
-        :failures  (prin1-to-string (getf suite :failures 0))
-        :skipped   (prin1-to-string (getf suite :skipped  0))
-        :time      (prin1-to-string (getf suite :time     0))
-        :timestamp (getf suite :timestamp)
-        :hostname  (getf suite :hostname "localhost")
+       (:testsuite
+           :id        (prin1-to-string (incf *suite-id*))
+         :name      *suite-name*
+         :package   (getf suite :package)
+         :tests     (prin1-to-string (getf suite :tests    0))
+         :disabled  (prin1-to-string (getf suite :disabled 0))
+         :errors    (prin1-to-string (getf suite :errors   0))
+         :failures  (prin1-to-string (getf suite :failures 0))
+         :skipped   (prin1-to-string (getf suite :skipped  0))
+         :time      (prin1-to-string (getf suite :time     0))
+         :timestamp (getf suite :timestamp)
+         :hostname  (getf suite :hostname "localhost")
 
-        (unless *junit-no-properties*
-          ;; <!-- Properties (e.g., environment settings) set during test execution.
-          ;;      The properties element can appear 0 or once. -->
-          ;; <properties>
-          ;;   <!-- property can appear multiple times. The name and value attributres are required. -->
-          ;;   <property name="" value=""/>
-          ;; </properties>
-          (cl-who:htm
-           (:properties
-            (:property :name "LISP-IMPLEMENTATION-TYPE"    :value (cl-who:escape-string (lisp-implementation-type)))
-            (:property :name "LISP-IMPLEMENTATION-VERSION" :value (cl-who:escape-string (lisp-implementation-version)))
-            (:property :name "SOFTWARE-TYPE"               :value (cl-who:escape-string (software-type)))
-            (:property :name "SOFTWARE-VERSION"            :value (cl-who:escape-string (software-version)))
-            (:property :name "MACHINE-INSTANCE"            :value (cl-who:escape-string (machine-instance)))
-            (:property :name "MACHINE-TYPE"                :value (cl-who:escape-string (machine-type)))
-            (:property :name "MACHINE-VERSION"             :value (cl-who:escape-string (machine-version)))
-            (:property :name "*FEATURES*"                  :value (cl-who:escape-string (prin1-to-string *features*))))))
+         (unless *junit-no-properties*
+           ;; <!-- Properties (e.g., environment settings) set during test execution.
+           ;;      The properties element can appear 0 or once. -->
+           ;; <properties>
+           ;;   <!-- property can appear multiple times. The name and value attributres are required. -->
+           ;;   <property name="" value=""/>
+           ;; </properties>
+           (cl-who:htm
+            (:properties
+             (:property :name "LISP-IMPLEMENTATION-TYPE"    :value (cl-who:escape-string (lisp-implementation-type)))
+             (:property :name "LISP-IMPLEMENTATION-VERSION" :value (cl-who:escape-string (lisp-implementation-version)))
+             (:property :name "SOFTWARE-TYPE"               :value (cl-who:escape-string (software-type)))
+             (:property :name "SOFTWARE-VERSION"            :value (cl-who:escape-string (software-version)))
+             (:property :name "MACHINE-INSTANCE"            :value (cl-who:escape-string (machine-instance)))
+             (:property :name "MACHINE-TYPE"                :value (cl-who:escape-string (machine-type)))
+             (:property :name "MACHINE-VERSION"             :value (cl-who:escape-string (machine-version)))
+             (:property :name "*FEATURES*"                  :value (cl-who:escape-string (prin1-to-string *features*))))))
 
-        (dolist (testcase (getf suite :testcases))
-          (write-string (junit-format-testcase testcase))))))))
+         (dolist (testcase (getf suite :testcases))
+           (write-string (junit-format-testcase testcase))))))))
 
 (defun junit-format-testsuites (suites)
   (cl-who:with-html-output-to-string (*standard-output* nil :indent nil)
@@ -675,7 +766,7 @@ Statistics can be calculated during a test run, but the default is to use statis
     ;;         tests=""    <!-- total number of tests from all testsuites. Some software may expect to only see the number of successful tests from all testsuites though. -->
     ;;         time=""     <!-- time in seconds to execute all test suites. -->
     ;;     >
-	(cl-who:htm
+    (cl-who:htm
      (:testsuites
       :id   (prepare-testsuite-name (getf suites :name))
       :name (prepare-testsuite-name (getf suites :name))
@@ -696,5 +787,4 @@ If your identifiers are not 1 or 3 levels this wont work for you."
     "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
     (when suites
       (write-string (junit-format-testsuites suites)))))
-
 
