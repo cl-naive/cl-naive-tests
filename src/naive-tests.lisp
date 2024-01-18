@@ -444,7 +444,7 @@ The name of the test suite is registered immediately in
              suites)
     suites-results))
 
-(defun run (&key (suites *test-suites*)
+(defun run (&key suites
             (name ':suites)
             (keep-stats-p nil)
             ((:debug cl-naive-tests:*debug*) cl-naive-tests:*debug*)
