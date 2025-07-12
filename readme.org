@@ -66,7 +66,7 @@ To load and run the tests
 #+BEGIN_SRC lisp
   (ql:quickload :cl-naive-tests.tests)
 
-  (cl-naive-tests.tests::report (cl-naive-tests.tests:run))
+  (cl-naive-tests:report (cl-naive-tests:run))
 #+END_SRC
 
 ** Why -NAIVE-
