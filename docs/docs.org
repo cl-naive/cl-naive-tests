@@ -194,17 +194,18 @@ tests results, describing the test.
 
     (testcase (division by-zero)
               :test-func (lambda (result info)
-                           (let ((actual (getf result :actual)))
-                             (cond ((eql (getf result :expected)
-                                         :success)
-                                    ((typep actual 'error)
-                                     (setf (aref (getf result :test-data) 0)
-                                           (list 'unexpected-error (type-of actual)))
-                                     :failure)
-                                    (t
-                                     (setf (aref (getf result :test-data) 0)
-                                           (list 'unexpected-result actual))
-                                     :failure)))))
+                           (declare (ignore info))
+                           (let ((err (getf result :error)))
+                             (cond ((and err (typep err (getf result :expected)))
+                                    :success)
+                                   (err
+                                    (setf (getf result :test-data)
+                                          (list 'unexpected-error (type-of err)))
+                                    :failure)
+                                   (t
+                                    (setf (getf result :test-data)
+                                          (list 'unexpected-result (getf result :actual)))
+                                    :failure))))
               :test-data (vector nil)
               :expected 'division-by-zero
               :actual (handler-case (/ 3 0)
@@ -312,10 +313,10 @@ Here is a complete, runnable example of a test suite:
 #+BEGIN_SRC lisp
 (in-package :cl-user)
 
-(defpackage :cl-naive-tests-examples
+(defpackage :cl-naive-tests-example
   (:use :cl :cl-naive-tests))
 
-(in-package :cl-naive-tests-examples)
+(in-package :cl-naive-tests-example)
 
 ;; Define a test suite
 (testsuite math-tests
@@ -341,15 +342,15 @@ Here is a complete, runnable example of a test suite:
   (testcase division-by-zero-test
     :test-func (lambda (result info)
                  (declare (ignore info))
-                 (typep (getf result :actual) 'division-by-zero))
+                 (typep (getf result :error) 'division-by-zero))
     :actual (handler-case (/ 1 0)
               (division-by-zero (err) err))
     :expected t
     :info "Test division by zero error handling."))
 
 ;; To run the tests and see the report:
-;; (ql:quickload :cl-naive-tests-examples)
-;; (cl-naive-tests:report (cl-naive-tests:run :suites 'math-tests))
+;; (ql:quickload :cl-naive-tests-example) ;; Assuming the package is made available via Quicklisp or ASDF
+;; (cl-naive-tests:report (cl-naive-tests:run :suites '(math-tests)))
 #+END_SRC
 
 * Epilogue                                                         :noexport:

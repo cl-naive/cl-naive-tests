@@ -22,13 +22,13 @@ User:
 
 You need to grok lisp conditionals like if, and, or etc.
 
-From this package you will need to use the following functions
-register-test, test, run and report.
+From this package you will need to use the following macros and
+functions =testsuite=, =testcase=, =run= and =report=.
 
 Super User:
 
-You will have to add statistics, format-results and write-results to
-your arsenal as well.
+You will have to add =statistics=, =format-results= and =write-results=
+to your arsenal as well.
 
 ** Status
 
