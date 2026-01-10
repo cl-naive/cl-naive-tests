@@ -771,7 +771,7 @@ Statistics can be calculated during a test run, but the default is to use statis
       :id   (prepare-testsuite-name (getf suites :name))
       :name (prepare-testsuite-name (getf suites :name))
       :disabled (prin1-to-string (getf suites :disabled  0))
-      :error    (prin1-to-string (getf suites :errors    0))
+      :errors   (prin1-to-string (getf suites :errors    0))
       :failures (prin1-to-string (getf suites :failures  0))
       :tests    (prin1-to-string (getf suites :tests     0))
       :time     (prin1-to-string (getf suites :time      0))
@@ -787,4 +787,3 @@ If your identifiers are not 1 or 3 levels this wont work for you."
     "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>"
     (when suites
       (write-string (junit-format-testsuites suites)))))
-

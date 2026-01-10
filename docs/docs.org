@@ -33,7 +33,6 @@
 #+LATEX_HEADER: \rhead{\small{User Manual}}
 #+LATEX_HEADER: \lfoot{}
 #+LATEX_HEADER: \cfoot{\tiny{\copyright{2021 - 2022 Phil Marneweck}}}
-#+LATEX_HEADER: \rfoot{\small{Page \thepage \hspace{1pt} de \pageref{LastPage}}}
 
 * cl-naive-tests
 
@@ -69,8 +68,8 @@ keys:
 | =:time=     | total duration of the whole suites, in seconds |       integer |
 | =:suites=   | a list of testsuite results.                   |         plist |
 
-Currently there's no provision to skip or disable a testcase, so
-these counters are always 0.
+Testcases can be skipped or disabled, so these counters may be nonzero.
+See DISABLED in TESTCASE and SKIP-TESTCASE/DISABLE-TESTCASE.
 
 The testsuite results are collected into a plist with the following
 keys:
@@ -85,6 +84,7 @@ keys:
 | =:disabled=   | number of disabled testcases                        |             0 |
 | =:skipped=    | number of skipped testcases                         |             0 |
 | =:package=    | the name of the package that is tested              |        string |
+| =:hostname=   | host running the testsuite (machine-instance)       |        string |
 | =:time=       | duration of the suite, in seconds                   |       integer |
 | =:timestamp=  | ISO-8601 timestamp of the start of the testsuite    |        string |
 | =:testcases=  | a list of testcase results                          |         plist |
@@ -109,8 +109,9 @@ keys:
 | =:error=        | The error condition if the evaluation of =EXPRESSION= signaled one.                                |         error |
 | =:sysout=       | A string collecting the *standard-output* during the testcase.                                     |        string |
 | =:syserr=       | A string collecting the *error-output* and *trace-output* during the testcase.                     |        string |
+| =:reason=       | Skip reason (when failure-type is =:SKIPPED=).                                                     |        string |
 | =:result=       | Same as =:FAILURE-TYPE`=                                                                           |       keyword |
-| =:failure-type= | A keyword indicating the result of the testcase: =:SUCCESS= =:FAILURE= =:ERROR= or something else. |       keyword |
+| =:failure-type= | A keyword indicating the result: =:SUCCESS= =:FAILURE= =:ERROR= =:SKIPPED= =:DISABLED=.             |       keyword |
 
 * API
 
@@ -214,6 +215,20 @@ tests results, describing the test.
                         (error (err) err))
               :info \"Integer division by zero, giving a DIVISION-BY-ZERO error.\"))
 #+END_SRC
+
+** [function] =disable-testcase=
+
+Signals a DISABLE-TESTCASE condition, marking the current testcase as
+disabled without running it.
+
+** [function] =skip-testcase= =(&optional (message "Test case is skipped."))=
+
+Signals a SKIP-TESTCASE condition with a reason message. The reason is
+stored in the testcase result under =:REASON=.
+
+** [function] =skip-testcase-reason= =(condition)=
+
+Returns the reason stored in a SKIP-TESTCASE condition.
 
 ** [function] =run= =(&key (suites *test-suites*) keep-stats-p ((:debug *debug*) nil) (name "suites"))=
 
