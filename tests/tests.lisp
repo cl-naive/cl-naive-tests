@@ -162,4 +162,37 @@
               :info "tested-testsuite formatted results (junit)")
     ))
 
+(testsuite :report-result
+  (testcase :errors-are-not-success
+            :expected nil
+            :actual
+            (let ((*standard-output* (make-broadcast-stream)))
+              (multiple-value-bind (ok)
+                  (report
+                   (list :suites
+                         (list
+                          (list :name :demo
+                                :testcases
+                                (list (list :name "demo.error"
+                                            :failure-type :error)
+                                      (list :name "demo.success"
+                                            :failure-type :success))))))
+                ok)))
+
+  (testcase :skips-do-not-fail-report
+            :expected t
+            :actual
+            (let ((*standard-output* (make-broadcast-stream)))
+              (multiple-value-bind (ok)
+                  (report
+                   (list :suites
+                         (list
+                          (list :name :demo
+                                :testcases
+                                (list (list :name "demo.skip"
+                                            :failure-type :skipped)
+                                      (list :name "demo.success"
+                                            :failure-type :success))))))
+                ok))))
+
 ;;(report (run))

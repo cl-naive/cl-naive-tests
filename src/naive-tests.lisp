@@ -510,7 +510,11 @@ Statistics can be calculated during a test run, but the default is to use statis
     (format t "~&Passed:~12T~4D~%Failed:~12T~4D~%" (length passed) (length failed))
     (loop :for (key others) :on other :by (function cddr)
           :do (format t "~A:~12T~4D~%" key (length others)))
-    (values (not failed) passed failed other)))
+    (values (and (null failed)
+                 (null (getf other :error)))
+            passed
+            failed
+            other)))
 
 (defun statistics (suites-results)
   "Can be used to calculate statistics post tests if *keep-stats-p* was nil."
